@@ -12,6 +12,7 @@
     "build:runtime": "vite build packages/runtime",
     "build:editor": "vite build packages/editor",
     "validate": "node scripts/validate-sample.js",
+    "test": "node --test 'packages/*/test/*.test.js'",
     "lint": "eslint packages scripts",
     "format": "prettier --write ."
   },

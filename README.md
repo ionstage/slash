@@ -14,7 +14,7 @@ Web-based authoring tool for scroll-driven 3D story experiences. See `spec.md` f
 ```sh
 npm install
 npm run validate      # validate sample-project against the schemas
-npm run dev:runtime   # runtime demo page
+npm run dev:runtime   # runtime demo: plays sample-project (scroll to advance)
 npm run dev:editor    # editor shell
 npm run build         # build both apps
 npm run lint

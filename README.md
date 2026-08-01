@@ -8,6 +8,7 @@ Web-based authoring tool for scroll-driven 3D story experiences. See `spec.md` f
 - `packages/runtime` — loads and plays content. Depends on schema + Three.js only; never on the editor.
 - `packages/editor` — authoring UI. Embeds the runtime for its viewport and preview.
 - `sample-project/` — hand-written fixture project used to develop and test everything.
+- `docs/ai-authoring.md` — the content model explained for LLMs; usable as a system prompt for agentic authoring. The editor's ✨ AI panel generates scenes (Claude API or built-in offline provider) and 3D assets (Meshy image→3D, experimental).
 
 ## Commands
 

@@ -363,6 +363,54 @@ input.vec {
   height: min(96%, 760px);
 }
 
+/* --- AI dialog --- */
+
+#ai-overlay[hidden] {
+  display: none;
+}
+
+#ai-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 16, 0.7);
+  display: grid;
+  place-items: center;
+  z-index: 15;
+}
+
+#ai-dialog {
+  width: min(480px, 92vw);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+#ai-dialog h2 {
+  margin: 0;
+  font-size: 14px;
+}
+
+#ai-dialog textarea {
+  display: block;
+  width: 100%;
+  margin-top: 2px;
+  background: #14141c;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px;
+  font: inherit;
+  resize: vertical;
+}
+
+.ai-status {
+  color: var(--muted);
+  white-space: pre-wrap;
+  min-height: 1.2em;
+  margin: 8px 0 0;
+}
+
 /* --- Toast --- */
 
 #toast {

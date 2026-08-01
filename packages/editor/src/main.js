@@ -17,6 +17,7 @@ import {
   downloadBlob,
 } from './fs.js';
 import { buildExport } from './export.js';
+import { createAiPanel } from './ai/panel.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -149,6 +150,16 @@ $('btn-export').addEventListener('click', async () => {
 $('btn-preview').addEventListener('click', () => {
   if (!store.docs) return toast('Nothing to preview');
   preview.open();
+});
+
+const aiPanel = createAiPanel(
+  { overlay: $('ai-overlay'), body: $('ai-body'), btnClose: $('btn-ai-close') },
+  store,
+  { toast },
+);
+$('btn-ai').addEventListener('click', () => {
+  if (!store.docs) return toast('Open a project first');
+  aiPanel.open();
 });
 
 $('btn-add-scene').addEventListener('click', () => {

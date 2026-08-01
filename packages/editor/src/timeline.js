@@ -1,20 +1,23 @@
-import { upsertKey, deleteKeyNear, keyNear } from './track-edit.js';
-
 /**
- * Bottom bar: progress scrubber, camera keying and camera preview.
- * Scrubbing drives the viewport through the same scene-player update the
- * runtime uses.
+ * Bottom bar: progress scrubber, camera viewpoint capture and camera
+ * preview. Scrubbing drives the viewport through the same scene-player
+ * update the runtime uses.
+ *
+ * A section's camera is a single held viewpoint (a comic-panel shot), so
+ * "capture" writes the current free-camera pose into `camera.viewpoint`.
+ * (Authoring `drift` offsets is a later milestone.)
  */
 export function createTimeline(elements, store, viewport) {
   const { scrubber, tLabel, btnSetKey, btnDeleteKey, previewToggle } = elements;
+
+  btnSetKey.textContent = 'Capture viewpoint';
+  btnDeleteKey.hidden = true;
 
   function refresh() {
     const enabled = Boolean(store.docs);
     scrubber.disabled = !enabled;
     btnSetKey.disabled = !enabled;
     tLabel.textContent = `t=${viewport.progress.toFixed(2)}`;
-    const track = store.activeScene()?.camera.tracks.position;
-    btnDeleteKey.disabled = !enabled || !keyNear(track, viewport.progress);
   }
 
   scrubber.addEventListener('input', () => {
@@ -26,16 +29,9 @@ export function createTimeline(elements, store, viewport) {
     const scene = store.activeScene();
     if (!scene) return;
     const pose = viewport.cameraPose();
-    upsertKey(scene.camera.tracks.position, viewport.progress, pose.position, 'easeInOut');
-    upsertKey(scene.camera.tracks.lookAt, viewport.progress, pose.lookAt, 'easeInOut');
-    store.touch('scene', { source: 'timeline' });
-  });
-
-  btnDeleteKey.addEventListener('click', () => {
-    const scene = store.activeScene();
-    if (!scene) return;
-    deleteKeyNear(scene.camera.tracks.position, viewport.progress);
-    deleteKeyNear(scene.camera.tracks.lookAt, viewport.progress);
+    const viewpoint = (scene.camera.viewpoint ??= { position: [0, 2, 6], target: [0, 1, 0] });
+    viewpoint.position = pose.position;
+    viewpoint.target = pose.lookAt;
     store.touch('scene', { source: 'timeline' });
   });
 

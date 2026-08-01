@@ -132,7 +132,7 @@ export function mockEnvelope(docs, prompt) {
       .slice(0, 3)
       .join('-') || 'generated';
   const scene = {
-    formatVersion: 1,
+    formatVersion: 2,
     id: slug,
     name: prompt.slice(0, 40) || 'Generated scene',
     scrollLength: 3,
@@ -153,17 +153,7 @@ export function mockEnvelope(docs, prompt) {
         ]
       : [],
     camera: {
-      fov: 50,
-      tracks: {
-        position: [
-          { t: 0, value: [0, 1.8, 7] },
-          { t: 1, value: [1.5, 2.2, -2], easing: 'easeInOut' },
-        ],
-        lookAt: [
-          { t: 0, value: [0, 1.2, 0] },
-          { t: 1, value: [0, 1.2, -6], easing: 'easeInOut' },
-        ],
-      },
+      viewpoint: { position: [0, 1.8, 7], target: [0, 1.2, -2], fov: 50 },
     },
     events: [
       {

@@ -1,16 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validateDocument, validateProject } from '../src/index.js';
+import { validateDocument, validateProject, migrateScene } from '../src/index.js';
 
 const minimalScene = (id) => ({
-  formatVersion: 1,
+  formatVersion: 2,
   id,
   stage: { assetId: 'ground' },
   camera: {
-    tracks: {
-      position: [{ t: 0, value: [0, 1, 5] }],
-      lookAt: [{ t: 0, value: [0, 0, 0] }],
-    },
+    viewpoint: { position: [0, 1, 5], target: [0, 0, 0] },
   },
 });
 
@@ -37,13 +34,44 @@ test('accepts a minimal valid project', () => {
 
 test('rejects unknown properties and bad enums with precise paths', () => {
   const scene = minimalScene('a');
-  scene.camera.tracks.position[0].easing = 'bounce';
+  scene.camera.drift = { position: [{ t: 0, value: [0, 0, 0], easing: 'bounce' }] };
   scene.mystery = true;
   const result = validateDocument('scene', scene);
   assert.ok(!result.valid);
   const paths = result.errors.map((e) => e.path);
-  assert.ok(paths.includes('/camera/tracks/position/0/easing'));
+  assert.ok(paths.includes('/camera/drift/position/0/easing'));
   assert.ok(paths.includes('/mystery'));
+});
+
+test('migrateScene upgrades v1 camera tracks to a viewpoint, preserving motion as drift', () => {
+  const v1 = {
+    formatVersion: 1,
+    id: 'a',
+    stage: { assetId: 'ground' },
+    camera: {
+      fov: 45,
+      tracks: {
+        position: [
+          { t: 0, value: [0, 2, 6] },
+          { t: 1, value: [3, 2, 0], easing: 'easeInOut' },
+        ],
+        lookAt: [{ t: 0, value: [0, 1, 0] }],
+      },
+    },
+  };
+  const v2 = migrateScene(v1);
+  assert.equal(v2.formatVersion, 2);
+  assert.deepEqual(v2.camera.viewpoint, { position: [0, 2, 6], target: [0, 1, 0], fov: 45 });
+  // The moving position track becomes drift offsets from the viewpoint.
+  assert.deepEqual(v2.camera.drift.position, [
+    { t: 0, value: [0, 0, 0] },
+    { t: 1, value: [3, 0, -6], easing: 'easeInOut' },
+  ]);
+  // A single-keyframe lookAt has no motion, so no target drift.
+  assert.equal(v2.camera.drift.target, undefined);
+  assert.ok(validateDocument('scene', v2).valid);
+  // Already-migrated documents pass through untouched.
+  assert.equal(migrateScene(v2), v2);
 });
 
 test('oneOf rejects an action matching no variant', () => {

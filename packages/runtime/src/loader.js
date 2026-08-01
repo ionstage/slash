@@ -1,4 +1,4 @@
-import { validateDocument, validateProject } from '@slash/schema';
+import { validateDocument, validateProject, migrateScenes } from '@slash/schema';
 
 /**
  * Load and validate a whole project from a base URL (a directory containing
@@ -30,14 +30,16 @@ export async function loadProject(baseUrl = '/') {
   const storyCheck = validateDocument('story', story);
   if (!storyCheck.valid) throw invalidError('story.json', storyCheck.errors);
 
-  const scenes = {};
+  const rawScenes = {};
   await Promise.all(
     story.scenes
       .flatMap((entry) => [entry, ...(entry.viewpoints ?? [])])
       .map(async (entry) => {
-        scenes[entry.id] = await json(entry.path);
+        rawScenes[entry.id] = await json(entry.path);
       }),
   );
+  // Upgrade older scene documents (e.g. v1 camera tracks) before validating.
+  const scenes = migrateScenes(rawScenes);
 
   const result = validateProject({ project, story, scenes, assetIndex, state });
   if (!result.valid) throw invalidError('project', result.errors);

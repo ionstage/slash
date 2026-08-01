@@ -13,14 +13,11 @@ const docs = () => ({
   },
   scenes: {
     a: {
-      formatVersion: 1,
+      formatVersion: 2,
       id: 'a',
       stage: { assetId: 'ground' },
       camera: {
-        tracks: {
-          position: [{ t: 0, value: [0, 1, 5] }],
-          lookAt: [{ t: 0, value: [0, 0, 0] }],
-        },
+        viewpoint: { position: [0, 1, 5], target: [0, 0, 0] },
       },
     },
   },

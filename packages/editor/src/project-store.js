@@ -1,4 +1,4 @@
-import { validateProject } from '@slash/schema';
+import { validateProject, migrateScenes } from '@slash/schema';
 
 /**
  * The editor's central state: the five content documents, binary asset
@@ -39,7 +39,8 @@ export function createProjectStore() {
     },
 
     loadBundle({ project, story, scenes, assetIndex, state }, files = new Map(), dirHandle = null) {
-      this.docs = { project, story, scenes, assetIndex, state };
+      // Upgrade older scene documents (e.g. v1 camera tracks) on the way in.
+      this.docs = { project, story, scenes: migrateScenes(scenes), assetIndex, state };
       this.files = files;
       this.dirHandle = dirHandle;
       this.dirty = false;
@@ -190,24 +191,14 @@ function slugify(name) {
 
 function defaultScene(id, stageAssetId) {
   return {
-    formatVersion: 1,
+    formatVersion: 2,
     id,
     name: id,
     scrollLength: 3,
     stage: { assetId: stageAssetId },
     actors: [],
     camera: {
-      fov: 50,
-      tracks: {
-        position: [
-          { t: 0, value: [0, 2, 6] },
-          { t: 1, value: [0, 2, -4], easing: 'easeInOut' },
-        ],
-        lookAt: [
-          { t: 0, value: [0, 1, 0] },
-          { t: 1, value: [0, 1, -8], easing: 'easeInOut' },
-        ],
-      },
+      viewpoint: { position: [0, 2, 6], target: [0, 1, 0], fov: 50 },
     },
     events: [],
   };

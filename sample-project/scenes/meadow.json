@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "meadow",
   "name": "Dusk Meadow",
   "scrollLength": 4,
@@ -65,21 +65,15 @@
     }
   ],
   "camera": {
-    "fov": 50,
-    "tracks": {
-      "position": [
-        { "t": 0, "value": [0, 1.6, 5] },
-        { "t": 0.5, "value": [2.5, 2.2, -6], "easing": "easeInOut" },
-        { "t": 1, "value": [0.5, 1.8, -12], "easing": "easeOut" }
-      ],
-      "lookAt": [
-        { "t": 0, "value": [0, 1.2, 0] },
-        { "t": 0.5, "value": [0, 1.2, -8], "easing": "easeInOut" },
-        { "t": 1, "value": [0, 1.4, -16] }
-      ],
-      "fov": [
-        { "t": 0, "value": 50 },
-        { "t": 1, "value": 42, "easing": "easeInOut" }
+    "viewpoint": {
+      "position": [0, 2.2, 6.5],
+      "target": [0, 1.2, -4],
+      "fov": 48
+    },
+    "drift": {
+      "target": [
+        { "t": 0, "value": [0, 0, 0] },
+        { "t": 1, "value": [0, 0, -6], "easing": "easeInOut" }
       ]
     }
   },

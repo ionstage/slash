@@ -97,19 +97,16 @@ export function createInspector(container, store, viewport) {
         scene.scrollLength = v;
         touchScene();
       }),
-      numberField('Camera FOV', scene.camera.fov ?? 50, (v) => {
-        scene.camera.fov = v;
+      numberField('Camera FOV', scene.camera.viewpoint.fov ?? 50, (v) => {
+        scene.camera.viewpoint.fov = v;
         touchScene();
       }),
       el('h3', {}, 'Audio'),
       audioSelect('BGM', scene, 'bgm'),
       audioSelect('Ambient', scene, 'ambient'),
-      el('h3', {}, 'Camera keys'),
-      el('p.placeholder', {}, 'Set keys from the timeline bar below.'),
-      keyList(scene.camera.tracks.position, touchScene, (i) => {
-        // Keep position and lookAt keys paired when deleting.
-        scene.camera.tracks.lookAt.splice(i, 1);
-      }),
+      el('h3', {}, 'Camera viewpoint'),
+      el('p.placeholder', {}, 'Frame the shot in the viewport, then “Capture viewpoint” below.'),
+      viewpointReadout(scene.camera.viewpoint),
       el('h3', {}, 'Fog'),
       fogEditor(scene),
       el('h3', {}, 'Lights'),
@@ -812,6 +809,19 @@ export function createInspector(container, store, viewport) {
         ]),
       ),
     );
+  }
+
+  function viewpointReadout(viewpoint) {
+    return el('div', {}, [
+      vecField('Position', viewpoint.position, (v) => {
+        viewpoint.position = v;
+        touchScene();
+      }),
+      vecField('Target', viewpoint.target, (v) => {
+        viewpoint.target = v;
+        touchScene();
+      }),
+    ]);
   }
 
   function textField(label, value, onChange) {

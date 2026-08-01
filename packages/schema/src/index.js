@@ -6,6 +6,7 @@ import stateSchema from '../schemas/state.schema.json' with { type: 'json' };
 import { validate } from './validator.js';
 
 export { validate };
+export { migrateScene, migrateScenes } from './migrate.js';
 
 /** All content schemas, keyed by document kind. */
 export const schemas = {

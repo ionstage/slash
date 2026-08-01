@@ -57,11 +57,13 @@ Return a single JSON object of this shape:
 }
 
 Rules:
-- "formatVersion" is 1 on every scene.
+- "formatVersion" is 2 on every scene.
 - Scene "id" values: lowercase kebab-case, new (not in the existing list), unique.
 - "stage.assetId" and every actor "assetId" must be ids from the asset list above.
-- Camera needs "position" and "lookAt" tracks with keyframes at t=0 and t=1 minimum;
-  progress t runs 0..1 over the scene's scroll. Positions are meters; characters are ~1.7m tall.
+- Camera is one held viewpoint: "camera.viewpoint" needs "position" and "target"
+  (both meters; characters are ~1.7m tall). Frame each section like a comic panel
+  from this single shot. Add subtle "camera.drift" offsets over t only if a section
+  needs restrained movement.
 - Events may only reference state keys that exist or that you add under "state".
 - Scenes are appended to the story in array order (first scene follows the current story).
 - Aim for atmosphere: use lights, fog ("environment"), and effects where they serve the story.

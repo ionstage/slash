@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "meadow-tree",
   "name": "Dusk Meadow — the Old Tree",
   "scrollLength": 4,
@@ -43,17 +43,10 @@
     }
   ],
   "camera": {
-    "fov": 45,
-    "tracks": {
-      "position": [
-        { "t": 0, "value": [-6, 2.5, -4] },
-        { "t": 0.6, "value": [-5, 4, -7], "easing": "easeInOut" },
-        { "t": 1, "value": [-4.5, 6.5, -9.5], "easing": "easeInOut" }
-      ],
-      "lookAt": [
-        { "t": 0, "value": [-3, 3, -10] },
-        { "t": 1, "value": [-3, 6, -10], "easing": "easeInOut" }
-      ]
+    "viewpoint": {
+      "position": [-6, 3.2, -4],
+      "target": [-3, 3.6, -10],
+      "fov": 45
     }
   },
   "events": [

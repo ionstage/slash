@@ -8,8 +8,9 @@ const DEG = Math.PI / 180;
 
 /**
  * Assembles one scene document into a Three.js group and drives it from the
- * scene's progress axis: actor tracks, camera tracks, glTF clip playback and
- * event triggers. Action execution is delegated to the player via `ctx.run`.
+ * scene's progress axis: actor tracks, the camera viewpoint (held, with
+ * optional drift), glTF clip playback and event triggers. Action execution
+ * is delegated to the player via `ctx.run`.
  *
  * @param {any} sceneDoc Validated scene document.
  * @param {{
@@ -139,11 +140,24 @@ export async function createScenePlayer(
         mixer?.update(dt);
       }
 
-      const cam = sceneDoc.camera;
-      camera.position.fromArray(sampleTrack(cam.tracks.position, t));
-      const look = sampleTrack(cam.tracks.lookAt, t);
-      camera.lookAt(look[0], look[1], look[2]);
-      camera.fov = cam.tracks.fov ? sampleTrack(cam.tracks.fov, t) : (cam.fov ?? 50);
+      // Camera holds the section's viewpoint (a comic-panel shot); optional
+      // `drift` adds restrained offsets over progress.
+      const { viewpoint, drift } = sceneDoc.camera;
+      const [px, py, pz] = viewpoint.position;
+      const [lx, ly, lz] = viewpoint.target;
+      if (drift?.position) {
+        const d = sampleTrack(drift.position, t);
+        camera.position.set(px + d[0], py + d[1], pz + d[2]);
+      } else {
+        camera.position.set(px, py, pz);
+      }
+      if (drift?.target) {
+        const d = sampleTrack(drift.target, t);
+        camera.lookAt(lx + d[0], ly + d[1], lz + d[2]);
+      } else {
+        camera.lookAt(lx, ly, lz);
+      }
+      camera.fov = (viewpoint.fov ?? 50) + (drift?.fov ? sampleTrack(drift.fov, t) : 0);
       camera.updateProjectionMatrix();
 
       applyVisibility();

@@ -6,7 +6,7 @@
   "required": ["formatVersion", "id", "stage", "camera"],
   "additionalProperties": false,
   "properties": {
-    "formatVersion": { "const": 1 },
+    "formatVersion": { "const": 2 },
     "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
     "name": { "type": "string", "description": "Display name shown in the editor." },
     "scrollLength": {
@@ -64,18 +64,28 @@
     "camera": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["tracks"],
-      "description": "Camera direction over the progress axis.",
+      "required": ["viewpoint"],
+      "description": "The section's intended camera viewpoint — framed once, like a comic panel, and held for the whole section. Each section only needs to look right from this viewpoint. Optional `drift` adds restrained movement over progress t.",
       "properties": {
-        "fov": { "type": "number", "minimum": 10, "maximum": 120, "description": "Base vertical FOV in degrees. Default 50." },
-        "tracks": {
+        "viewpoint": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["position", "lookAt"],
+          "required": ["position", "target"],
+          "description": "The fixed shot: where the camera sits and the point it looks at.",
           "properties": {
-            "position": { "$ref": "#/$defs/vec3Track" },
-            "lookAt": { "$ref": "#/$defs/vec3Track" },
-            "fov": { "$ref": "#/$defs/numberTrack" }
+            "position": { "$ref": "#/$defs/vec3", "description": "Camera position in meters." },
+            "target": { "$ref": "#/$defs/vec3", "description": "Point the camera looks at, in meters." },
+            "fov": { "type": "number", "minimum": 10, "maximum": 120, "description": "Vertical FOV in degrees. Default 50." }
+          }
+        },
+        "drift": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Restrained in-section movement: offsets added to the viewpoint over progress t in [0,1]. Keep it subtle — the viewpoint is the shot.",
+          "properties": {
+            "position": { "$ref": "#/$defs/vec3Track", "description": "Position offset (meters) added to the viewpoint over t." },
+            "target": { "$ref": "#/$defs/vec3Track", "description": "Look-at offset (meters) added to the viewpoint over t." },
+            "fov": { "$ref": "#/$defs/numberTrack", "description": "FOV offset (degrees) added over t." }
           }
         }
       }

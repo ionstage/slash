@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "shrine",
   "name": "The Moonlit Shrine",
   "scrollLength": 3,
@@ -55,16 +55,15 @@
     }
   ],
   "camera": {
-    "fov": 45,
-    "tracks": {
+    "viewpoint": {
+      "position": [0, 2, 7],
+      "target": [0, 1.6, -0.5],
+      "fov": 45
+    },
+    "drift": {
       "position": [
-        { "t": 0, "value": [0, 1.8, 8] },
-        { "t": 0.6, "value": [-2, 1.5, 2], "easing": "easeInOut" },
-        { "t": 1, "value": [0, 2.5, 3], "easing": "easeInOut" }
-      ],
-      "lookAt": [
-        { "t": 0, "value": [0, 1.5, 0] },
-        { "t": 1, "value": [0, 2, -1], "easing": "easeInOut" }
+        { "t": 0, "value": [0, 0, 0] },
+        { "t": 1, "value": [0, 0.4, -2], "easing": "easeInOut" }
       ]
     }
   },

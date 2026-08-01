@@ -77,6 +77,18 @@ export async function createScenePlayer(
     group.add(effect.object);
   }
 
+  // Isolate mesh materials so this scene's opacity can be driven independently
+  // during transitions (primitive assets share a template material otherwise).
+  // Particle effects keep their own materials — they manage their own opacity.
+  const fadeMeshes = [];
+  group.traverse((node) => {
+    if (!node.isMesh) return;
+    node.material = node.material.clone();
+    node.material.userData.slashBaseOpacity = node.material.opacity;
+    node.material.userData.slashBaseTransparent = node.material.transparent;
+    fadeMeshes.push(node);
+  });
+
   let lastT = 0;
   const fired = new Set();
 
@@ -105,6 +117,23 @@ export async function createScenePlayer(
     for (const effect of effects.values()) effect.update(dt, t);
   }
 
+  // The section's held viewpoint at progress t, with optional drift offsets.
+  function cameraPose(t) {
+    const { viewpoint, drift } = sceneDoc.camera;
+    const pos = [...viewpoint.position];
+    const tgt = [...viewpoint.target];
+    if (drift?.position) {
+      const d = sampleTrack(drift.position, t);
+      pos[0] += d[0]; pos[1] += d[1]; pos[2] += d[2];
+    }
+    if (drift?.target) {
+      const d = sampleTrack(drift.target, t);
+      tgt[0] += d[0]; tgt[1] += d[1]; tgt[2] += d[2];
+    }
+    const fov = (viewpoint.fov ?? 50) + (drift?.fov ? sampleTrack(drift.fov, t) : 0);
+    return { position: pos, target: tgt, fov };
+  }
+
   return {
     doc: sceneDoc,
     group,
@@ -121,14 +150,36 @@ export async function createScenePlayer(
       updateLightsAndEffects(lastT, dt);
     },
 
+    /** The section's camera pose (position/target/fov) at progress t. */
+    sampleCamera: cameraPose,
+
+    /**
+     * Set a uniform opacity on the scene's meshes (0..1), for transition
+     * fades. Honors each material's authored base opacity/transparency, so a
+     * value of 1 fully restores it. Particle effects are unaffected.
+     * @param {number} alpha
+     */
+    setOpacity(alpha) {
+      for (const mesh of fadeMeshes) {
+        const m = mesh.material;
+        const transparent = m.userData.slashBaseTransparent || alpha < 1;
+        m.opacity = (m.userData.slashBaseOpacity ?? 1) * alpha;
+        m.transparent = transparent;
+        m.depthWrite = !transparent;
+      }
+    },
+
     /**
      * Advance the scene to progress t.
      * @param {number} t Scene progress in [0,1].
      * @param {number} dt Seconds since last frame (drives clip playback).
      * @param {THREE.PerspectiveCamera} camera
      * @param {{ run: (event: any) => void }} ctx
+     * @param {boolean} [applyCamera] Write the viewpoint to `camera` (default
+     *   true). The transition controller sets this false to blend the camera
+     *   across two sections itself.
      */
-    update(t, dt, camera, ctx) {
+    update(t, dt, camera, ctx, applyCamera = true) {
       for (const { def, object, mixer } of actors.values()) {
         const tracks = def.tracks ?? {};
         if (tracks.position) object.position.fromArray(sampleTrack(tracks.position, t));
@@ -140,25 +191,15 @@ export async function createScenePlayer(
         mixer?.update(dt);
       }
 
-      // Camera holds the section's viewpoint (a comic-panel shot); optional
-      // `drift` adds restrained offsets over progress.
-      const { viewpoint, drift } = sceneDoc.camera;
-      const [px, py, pz] = viewpoint.position;
-      const [lx, ly, lz] = viewpoint.target;
-      if (drift?.position) {
-        const d = sampleTrack(drift.position, t);
-        camera.position.set(px + d[0], py + d[1], pz + d[2]);
-      } else {
-        camera.position.set(px, py, pz);
+      // Camera holds the section's viewpoint (a comic-panel shot), unless the
+      // transition controller is blending the camera across two sections.
+      if (applyCamera) {
+        const pose = cameraPose(t);
+        camera.position.set(...pose.position);
+        camera.lookAt(...pose.target);
+        camera.fov = pose.fov;
+        camera.updateProjectionMatrix();
       }
-      if (drift?.target) {
-        const d = sampleTrack(drift.target, t);
-        camera.lookAt(lx + d[0], ly + d[1], lz + d[2]);
-      } else {
-        camera.lookAt(lx, ly, lz);
-      }
-      camera.fov = (viewpoint.fov ?? 50) + (drift?.fov ? sampleTrack(drift.fov, t) : 0);
-      camera.updateProjectionMatrix();
 
       applyVisibility();
       updateLightsAndEffects(t, dt);

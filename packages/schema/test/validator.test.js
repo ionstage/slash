@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validateDocument, validateProject, migrateScene } from '../src/index.js';
+import { validateDocument, validateProject, migrateScene, migrateStory } from '../src/index.js';
 
 const minimalScene = (id) => ({
   formatVersion: 2,
@@ -14,7 +14,7 @@ const minimalScene = (id) => ({
 const minimalDocs = () => ({
   project: { formatVersion: 1, id: 'p', title: 'P' },
   story: {
-    formatVersion: 1,
+    formatVersion: 2,
     start: 'a',
     scenes: [{ id: 'a', path: 'scenes/a.json', next: null }],
   },
@@ -72,6 +72,15 @@ test('migrateScene upgrades v1 camera tracks to a viewpoint, preserving motion a
   assert.ok(validateDocument('scene', v2).valid);
   // Already-migrated documents pass through untouched.
   assert.equal(migrateScene(v2), v2);
+});
+
+test('migrateStory bumps v1 stories to v2 (seams default to cut)', () => {
+  const v1 = { formatVersion: 1, start: 'a', scenes: [{ id: 'a', path: 'scenes/a.json', next: null }] };
+  const v2 = migrateStory(v1);
+  assert.equal(v2.formatVersion, 2);
+  assert.ok(validateDocument('story', v2).valid);
+  const already = migrateStory(v2);
+  assert.equal(already, v2); // pass-through
 });
 
 test('oneOf rejects an action matching no variant', () => {

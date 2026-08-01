@@ -1,4 +1,4 @@
-import { validateDocument, validateProject, migrateScenes } from '@slash/schema';
+import { validateDocument, validateProject, migrateScenes, migrateStory } from '@slash/schema';
 
 /**
  * Load and validate a whole project from a base URL (a directory containing
@@ -19,14 +19,16 @@ export async function loadProject(baseUrl = '/') {
     return res.json();
   };
 
-  const [project, story, assetIndex, state] = await Promise.all([
-    json('project.json'),
+  const [rawStory, project, assetIndex, state] = await Promise.all([
     json('story.json'),
+    json('project.json'),
     json('assets/index.json'),
     json('state.json'),
   ]);
 
-  // Validate the story alone first: scene fetching walks its entries.
+  // Upgrade the story (e.g. adds v2 edge transitions) before validating —
+  // scene fetching walks its entries.
+  const story = migrateStory(rawStory);
   const storyCheck = validateDocument('story', story);
   if (!storyCheck.valid) throw invalidError('story.json', storyCheck.errors);
 

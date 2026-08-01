@@ -1,18 +1,25 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "start": "meadow",
   "scenes": [
     {
       "id": "meadow",
       "path": "scenes/meadow.json",
       "next": "shrine",
+      "transition": { "type": "crossfade", "span": 0.6 },
       "viewpoints": [{ "id": "meadow-tree", "path": "scenes/meadow-tree.json" }]
     },
     {
       "id": "shrine",
       "path": "scenes/shrine.json",
       "next": null,
-      "branches": [{ "when": { "key": "rangBell", "equals": true }, "next": "blessing" }]
+      "branches": [
+        {
+          "when": { "key": "rangBell", "equals": true },
+          "next": "blessing",
+          "transition": { "type": "camera", "span": 0.9 }
+        }
+      ]
     },
     { "id": "blessing", "path": "scenes/blessing.json", "next": null }
   ]

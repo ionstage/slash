@@ -1,12 +1,12 @@
 {
   "$id": "slash/story",
   "title": "Slash story graph (story.json)",
-  "description": "Ordering and branching of scenes. Vertical progression = following `next` links. Horizontal viewpoint switching and branching are added in a later format version.",
+  "description": "Ordering and branching of scenes. Vertical progression = following `next` links. Each edge (a `next` link or a branch) may carry a `transition` describing how the seam into the target section plays.",
   "type": "object",
   "required": ["formatVersion", "start", "scenes"],
   "additionalProperties": false,
   "properties": {
-    "formatVersion": { "const": 1 },
+    "formatVersion": { "const": 2 },
     "start": { "type": "string", "description": "Scene id where the story begins." },
     "scenes": {
       "type": "array",
@@ -31,6 +31,10 @@
             "type": ["string", "null"],
             "description": "Scene id that follows when progress passes the end of this scene. null or omitted = story ends here. Evaluated after `branches`."
           },
+          "transition": {
+            "$ref": "#/$defs/transition",
+            "description": "How the seam into `next` plays. Omitted = a hard cut."
+          },
           "branches": {
             "type": "array",
             "description": "State-dependent outcomes: the first branch whose condition matches decides the next scene, otherwise `next` applies.",
@@ -40,7 +44,11 @@
               "additionalProperties": false,
               "properties": {
                 "when": { "$ref": "#/$defs/condition" },
-                "next": { "type": "string", "description": "Scene id to continue with." }
+                "next": { "type": "string", "description": "Scene id to continue with." },
+                "transition": {
+                  "$ref": "#/$defs/transition",
+                  "description": "How the seam into this branch's target plays. Omitted = a hard cut."
+                }
               }
             }
           },
@@ -74,6 +82,24 @@
       "properties": {
         "key": { "type": "string" },
         "equals": { "type": ["boolean", "number", "string"] }
+      }
+    },
+    "transition": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "description": "How a boundary between two vertically stacked sections plays. Selected per edge.",
+      "properties": {
+        "type": {
+          "enum": ["cut", "crossfade", "camera"],
+          "description": "cut = instant swap at the seam. crossfade = the two sections dissolve across the band. camera = the camera glides from one section's viewpoint to the next across the band."
+        },
+        "span": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 4,
+          "description": "Scroll units the transition occupies, straddling the seam. Both sections render inside this band. Default depends on type; ignored by `cut`."
+        }
       }
     }
   }

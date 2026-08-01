@@ -1,4 +1,4 @@
-import { validateProject, migrateScenes } from '@slash/schema';
+import { validateProject, migrateScenes, migrateStory } from '@slash/schema';
 
 /**
  * The editor's central state: the five content documents, binary asset
@@ -39,8 +39,8 @@ export function createProjectStore() {
     },
 
     loadBundle({ project, story, scenes, assetIndex, state }, files = new Map(), dirHandle = null) {
-      // Upgrade older scene documents (e.g. v1 camera tracks) on the way in.
-      this.docs = { project, story, scenes: migrateScenes(scenes), assetIndex, state };
+      // Upgrade older documents (v1 camera tracks, missing edge transitions).
+      this.docs = { project, story: migrateStory(story), scenes: migrateScenes(scenes), assetIndex, state };
       this.files = files;
       this.dirHandle = dirHandle;
       this.dirty = false;
@@ -214,7 +214,7 @@ function defaultProject() {
       settings: { maxPixelRatio: 2 },
     },
     story: {
-      formatVersion: 1,
+      formatVersion: 2,
       start: 'scene',
       scenes: [{ id: 'scene', path: 'scenes/scene.json', next: null }],
     },

@@ -7,7 +7,7 @@ import { mockEnvelope } from '../src/ai/providers.js';
 const docs = () => ({
   project: { formatVersion: 1, id: 'p', title: 'P' },
   story: {
-    formatVersion: 1,
+    formatVersion: 2,
     start: 'a',
     scenes: [{ id: 'a', path: 'scenes/a.json', next: null }],
   },

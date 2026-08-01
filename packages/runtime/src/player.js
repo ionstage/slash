@@ -5,7 +5,8 @@ import { createScenePlayer } from './scene-player.js';
 import { createScrollDriver } from './scroll.js';
 import { createStateStore } from './state.js';
 import { createAudioSystem } from './audio.js';
-import { resolveNext } from './conditions.js';
+import { resolveNextEdge } from './conditions.js';
+import { resolveTransition } from './transitions.js';
 import { createPostPipeline } from './post.js';
 
 const DEFAULT_SCROLL_LENGTH = 3;
@@ -91,7 +92,7 @@ export async function createPlayer(container, bundle, { persist = true } = {}) {
     return end;
   }
 
-  async function appendNode(id) {
+  async function appendNode(id, transition) {
     const node = storyNodes.get(id);
     if (!node) return console.warn(`[slash] unknown story node "${id}"`);
     const doc = bundle.scenes[id];
@@ -101,6 +102,8 @@ export async function createPlayer(container, bundle, { persist = true } = {}) {
       start: pathEnd(),
       vpIndex: 0,
       ready: false,
+      // How the seam INTO this entry plays (from the edge that led here).
+      enterTransition: resolveTransition(transition),
     };
     path.push(entry);
     building = true;
@@ -162,15 +165,20 @@ export async function createPlayer(container, bundle, { persist = true } = {}) {
   let active = null;
   let activeEntry = null;
   let autoPlay = false;
-  const ctx = { run: (event) => runEvent(active, event) };
+  // Each scene player gets an event context bound to itself, so an event
+  // firing during a transition (when two scenes are live) resolves its
+  // actors/effects against the scene that owns it.
+  const ctxFor = (scenePlayer) => ({ run: (event) => runEvent(scenePlayer, event) });
   const progressListeners = new Set();
 
-  function entryAt(units) {
-    for (const entry of path) {
-      if (units < entry.start + entry.length) return entry;
+  function entryIndexAt(units) {
+    for (let i = 0; i < path.length; i++) {
+      if (units < path[i].start + path[i].length) return i;
     }
-    return path.at(-1);
+    return path.length - 1;
   }
+  const localT = (entry, units) =>
+    Math.min(1, Math.max(0, (units - entry.start) / entry.length));
 
   function jumpToScene(id) {
     const existing = path.find((e) => e.node.id === id);
@@ -215,6 +223,82 @@ export async function createPlayer(container, bundle, { persist = true } = {}) {
     postPipeline?.setEnabled(doc.post !== false);
   }
 
+  // Scenes currently added to the viewer (one, or two during a transition).
+  const shown = new Set();
+  function setShown(players) {
+    for (const sp of shown) {
+      if (!players.includes(sp)) {
+        viewer.scene.remove(sp.group);
+        sp.setOpacity(1); // leave revisitable scenes fully opaque
+        shown.delete(sp);
+      }
+    }
+    for (const sp of players) {
+      if (!shown.has(sp)) {
+        viewer.scene.add(sp.group);
+        shown.add(sp);
+      }
+    }
+  }
+
+  // Primary = the section at the current scroll position; it owns audio,
+  // atmosphere, viewpoint UI, taps. Flips at the seam midpoint.
+  function setPrimary(entry) {
+    activeEntry = entry;
+    const sp = scenePlayers.get(variantId(entry));
+    if (sp && sp !== active) {
+      active = sp;
+      applyAudio(sp.doc);
+      applyAtmosphere(sp);
+      notifyViewpoint();
+    }
+  }
+
+  /**
+   * If `units` sits inside a seam's transition band, describe it: the
+   * outgoing/incoming entries, progress `p` (0→1) across the band, and the
+   * resolved transition. Bands straddle a seam; the half below it is found
+   * via the lower entry's outgoing edge, the half above via the upper
+   * entry's `enterTransition`.
+   */
+  function bandAt(pi, units) {
+    const next = path[pi + 1];
+    if (next?.ready) {
+      const tr = next.enterTransition;
+      const seam = next.start;
+      const half = tr.span / 2;
+      if (tr.banded && units >= seam - half && units <= seam + half)
+        return { out: path[pi], in: next, p: (units - (seam - half)) / tr.span, tr };
+    }
+    const cur = path[pi];
+    if (pi > 0 && path[pi - 1].ready) {
+      const tr = cur.enterTransition;
+      const seam = cur.start;
+      const half = tr.span / 2;
+      if (tr.banded && units >= seam - half && units <= seam + half)
+        return { out: path[pi - 1], in: cur, p: (units - (seam - half)) / tr.span, tr };
+    }
+    return null;
+  }
+
+  const camA = new THREE.Vector3();
+  const camB = new THREE.Vector3();
+  const tgtA = new THREE.Vector3();
+  const tgtB = new THREE.Vector3();
+  function applyBlendedCamera(a, b, mix) {
+    const cam = viewer.camera;
+    cam.position.copy(camA.fromArray(a.position).lerp(camB.fromArray(b.position), mix));
+    cam.lookAt(tgtA.fromArray(a.target).lerp(tgtB.fromArray(b.target), mix));
+    cam.fov = a.fov + (b.fov - a.fov) * mix;
+    cam.updateProjectionMatrix();
+  }
+
+  function notifyProgress(units, doc, t, loading) {
+    for (const cb of progressListeners) {
+      cb({ units, totalUnits: pathEnd(), scene: doc, t, autoPlay, loading });
+    }
+  }
+
   viewer.onTick((dt) => {
     if (autoPlay) driver.advance(autoSpeed * dt);
     let units = driver.update(dt);
@@ -226,8 +310,8 @@ export async function createPlayer(container, bundle, { persist = true } = {}) {
     // final margin of a scene no longer affect which branch was taken.
     const last = path.at(-1);
     if (!building && last?.ready && units >= pathEnd() - FRONTIER_MARGIN) {
-      const nextId = resolveNext(last.node, state.get);
-      if (nextId) appendNode(nextId);
+      const { next, transition } = resolveNextEdge(last.node, state.get);
+      if (next) appendNode(next, transition);
     }
     // Never advance into a node whose scene is still loading.
     const limit = builtEnd();
@@ -238,25 +322,40 @@ export async function createPlayer(container, bundle, { persist = true } = {}) {
       loading = true;
     }
 
-    const entry = entryAt(units);
-    if (!entry?.ready) return;
-    const scenePlayer = scenePlayers.get(variantId(entry));
-    if (!scenePlayer) return;
-    if (scenePlayer !== active) {
-      if (active) viewer.scene.remove(active.group);
-      viewer.scene.add(scenePlayer.group);
-      active = scenePlayer;
-      activeEntry = entry;
-      applyAudio(scenePlayer.doc);
-      applyAtmosphere(scenePlayer);
-      notifyViewpoint();
+    const pi = entryIndexAt(units);
+    const primary = path[pi];
+    if (!primary?.ready) return;
+
+    // Transition band: render both sections and blend opacity + camera.
+    const band = bandAt(pi, units);
+    const pOut = band && scenePlayers.get(variantId(band.out));
+    const pIn = band && scenePlayers.get(variantId(band.in));
+    if (band && pOut && pIn) {
+      setShown([pOut, pIn]);
+      const tOut = localT(band.out, units);
+      const tIn = localT(band.in, units);
+      pOut.update(tOut, dt, viewer.camera, ctxFor(pOut), false);
+      pIn.update(tIn, dt, viewer.camera, ctxFor(pIn), false);
+      const w = band.tr.def.weights(band.p);
+      pOut.setOpacity(w.from);
+      pIn.setOpacity(w.to);
+      applyBlendedCamera(pOut.sampleCamera(tOut), pIn.sampleCamera(tIn), band.tr.def.cameraMix(band.p));
+      setPrimary(primary);
+      const t = localT(primary, units);
+      notifyProgress(units, primary === band.out ? pOut.doc : pIn.doc, t, loading);
+      return;
     }
-    activeEntry = entry;
-    const t = Math.min(1, Math.max(0, (units - entry.start) / entry.length));
-    active.update(t, dt, viewer.camera, ctx);
-    for (const cb of progressListeners) {
-      cb({ units, totalUnits: pathEnd(), scene: active.doc, t, autoPlay, loading });
-    }
+
+    // Single section. Always restore full opacity: fast scrolling can skip a
+    // band's edge, leaving the surviving scene mid-fade.
+    const sp = scenePlayers.get(variantId(primary));
+    if (!sp) return;
+    setShown([sp]);
+    sp.setOpacity(1);
+    setPrimary(primary);
+    const t = localT(primary, units);
+    sp.update(t, dt, viewer.camera, ctxFor(sp), true);
+    notifyProgress(units, sp.doc, t, loading);
   });
 
   // Keyboard: viewpoint switching (mirrors horizontal swipe).
@@ -288,7 +387,7 @@ export async function createPlayer(container, bundle, { persist = true } = {}) {
     const hit = raycaster
       .intersectObjects(active.group.children, true)
       .find((h) => h.object.visible);
-    active.handleTap(hit ? findActorId(hit.object) : null, ctx);
+    active.handleTap(hit ? findActorId(hit.object) : null, ctxFor(active));
   });
 
   return {

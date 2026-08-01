@@ -150,3 +150,105 @@ Author the same kind of content without hand-editing JSON.
 1. M0 scaffold + schema package + sample project fixture.
 2. M1 scroll driver + track sampler prototype against the fixture (the riskiest, most product-defining code).
 3. Grow the runtime until the fixture plays fully, then start the editor shell.
+
+---
+
+# N-series — Native scroll & connected stages
+
+The content specification was updated after M6. Four changes to the model:
+
+- **Native scrolling.** The runtime uses the browser's native scroll instead of hijacking wheel/touch into a virtual, damped `units` value (`packages/runtime/src/scroll.js`). Browser momentum provides the feel.
+- **Vertically connected stages.** The story is a vertically stacked sequence the viewer descends through. Some stages are independent; others transition seamlessly, with objects or characters continuing from one stage into the next so a boundary can feel like one continuous environment.
+- **Comic-panel viewpoints.** Each section only needs to work from one intended camera viewpoint — a fully realized 3D stage framed like a comic panel — rather than authored camera keyframe tracks that must hold up from every angle.
+- **Restrained character motion.** Characters move *through* the connected environments; animation is subtle, idle-led, not free per-actor choreography.
+
+Preserved from M1–M6: the story graph, dynamic path, event/state/effects/audio systems, **horizontal-swipe viewpoint switching, and branching**. Native vertical scroll is the primary navigation; horizontal viewpoints and branches remain.
+
+Decisions confirmed with the project owner:
+
+- **Structure:** vertically stacked stages — some independent, some seamless (carried objects/characters cross the seam).
+- **Transitions:** author-selectable **per boundary** (hard cut, cross-fade, camera movement, object continuity, extensible).
+- **Viewpoints & branching:** retained; vertical scroll is primary but not exclusive.
+
+Decisions made in this plan:
+
+- **Transitions live on the edge, not the section.** A section reached from multiple predecessors (branching, `gotoScene`) can have a different transition each way, and object continuity needs both sides of the seam. Placing the transition on the source→target edge is the only representation that covers both.
+- **`continuity` does not enforce world-space welding.** Carried objects move in a shared offset space; the author aligns the seam visually via an `offset`. This matches the existing spec's "physical consistency is not required" and keeps each stage authorable in its own coordinate space.
+- **Editor exposes transitions on the story-graph edge UI**, not the section inspector, mirroring where they live in data.
+
+## N.1 The per-boundary transition (core new abstraction)
+
+Story edges today are the string `next` and each `branches[].next` (`packages/schema/schemas/story.schema.json`). Bumped to `formatVersion: 2`, an optional `transition` attaches to each edge:
+
+```jsonc
+// a story-graph entry
+"next": "shrine",                                  // still valid → default (cut)
+"transition": { "type": "crossfade", "span": 0.5 },// applies to the `next` edge
+"branches": [
+  { "when": {…}, "next": "cave", "transition": { "type": "cut" } }
+]
+```
+
+Transition `type` is the author-selectable dial:
+
+- **`cut`** — hard boundary, instant swap (today's behavior; the migration default).
+- **`crossfade`** — both stages rendered across the band, opacity blended.
+- **`camera`** — camera eases from section N's viewpoint to N+1's; stages may overlap in world space.
+- **`continuity`** — named actors/props carry across, both stages coexist at authored vertical offsets so the object visibly crosses: `{ "type": "continuity", "carry": ["hero"], "offset": [0, -8, 0] }`.
+
+`span` is how many scroll units the transition occupies, straddling the seam. Types map to implementations via a registry, mirroring the event-action dispatch in `packages/runtime/src/player.js` — new styles are drop-in.
+
+## N.2 Runtime changes
+
+1. **Native scroll DOM** (`viewer.js`, `demo.js`, rewritten `scroll.js`): canvas mounts `position: sticky` behind a tall spacer of height `totalUnits × viewportHeight`; `units = scrollY / viewportHeight`; the virtual damping/flick machinery is removed. The path still grows by appending spacer height below the frontier (`player.js` — the `FRONTIER_MARGIN` logic), so appends never move `scrollY`. `gotoScene` reroutes and story loops/revisits become explicit `scrollTo` calls rather than continuous height.
+
+2. **Transition controller** (new, in `player.js`): a **band** around each seam where two path entries are live at once. Inside a band it keeps both `group`s in the scene, drives each section's camera viewpoint, and blends per the edge transition (opacity for `crossfade`, camera lerp for `camera`, offset positioning + carried-actor handoff for `continuity`). Outside a band it stays single-section and cheap, as today.
+
+3. **Camera-as-panel** (`scene.schema.json`, `scene-player.js` camera block): `camera.viewpoint { position, target, fov }` replaces required `tracks`; optional `drift` for restrained in-section movement. The old `camera.tracks` shape is kept behind `formatVersion` for migration.
+
+4. **Continuity actors**: a carried actor is instantiated once and reparented across the seam instead of duplicated — the "character moves through" case. The trickiest piece; scoped to its own milestone.
+
+5. **Touch reconciliation**: native vertical scroll now consumes vertical touch, so the horizontal-swipe viewpoint detector (`switchViewpoint` in `player.js`) re-scopes to clearly-horizontal gestures; keyboard arrows already cover desktop.
+
+## N.3 Milestones
+
+### N0 — Native scroll spike (riskiest; do first)
+
+Sticky canvas + spacer + `scrollY → units`, driving the *existing* camera tracks unchanged. Prove the feel on desktop and iOS Safari before anything else layers on top.
+
+**Done when:** the sample project plays end to end on native scroll on desktop and a phone, with no virtual-scroll code path.
+
+### N1 — Camera-as-panel
+
+Schema v2 `viewpoint` + migration from `camera.tracks`; hold-viewpoint runtime; port the sample project. Seams remain hard `cut`.
+
+**Done when:** every sample section is authored as a single viewpoint and plays correctly; old-format scenes still load via migration.
+
+### N2 — Transition controller + registry
+
+Per-edge `transition` schema; `cut` / `crossfade` / `camera` implemented; dual-section band rendering.
+
+**Done when:** an author can set a boundary's transition type in JSON and see cut, cross-fade, and camera-move seams in the sample.
+
+### N3 — Continuity
+
+`continuity` transition type, carried actors, vertical offset stacking, restrained-motion defaults documented in `docs/ai-authoring.md`.
+
+**Done when:** a character walks from one stage into the next across a seam in the sample project.
+
+### N4 — Editor
+
+"Frame this panel" camera capture (replaces the keyframe workflow in `viewport.js` / `timeline.js` / `track-edit.js`), per-boundary transition picker in the story-graph UI, native-scroll preview (`preview-panel.js`).
+
+**Done when:** a new user can frame each section, pick per-boundary transitions, and preview the real native-scroll feel without touching JSON.
+
+### N5 — Reconcile & polish
+
+Horizontal-swipe touch re-scoping, branching/loop scroll handling (`scrollTo` on reroute), export path verification, and updating `spec.md` + `docs/ai-authoring.md` to describe native scroll and comic-panel viewpoints.
+
+## N.4 Key risks
+
+- **Native scroll feel on iOS** is the product, again. Rubber-banding at the document ends, momentum, and dynamic spacer growth during branching all need to be verified on-device in N0 before the rest is built.
+- **Dual-section rendering cost.** Transition bands render two stages at once; budget for the seam (the heaviest frames) and keep bands short. Continuity keeps both stages live longest.
+- **Branching vs. a real document height.** Only appending height below the frontier keeps `scrollY` stable; reroutes and loops must be explicit `scrollTo`. Loops can otherwise imply unbounded document height.
+- **Migration churn.** Camera (`viewpoint` vs `tracks`) and story edges (`transition`) both move to `formatVersion: 2`; keep the sample project and migrations in lockstep so fixtures don't rot.

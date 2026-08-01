@@ -121,6 +121,24 @@ export function createInspector(container, store, viewport) {
       ...renderEvents(scene),
       el('h3', {}, 'Project style'),
       ...projectStyleEditor(),
+      el('h3', {}, 'Performance'),
+      performanceReadout(),
+    ]);
+  }
+
+  // Mobile triangle budget; over it, scenes start dropping frames on
+  // mid-range phones.
+  const TRIANGLE_BUDGET = 300_000;
+
+  function performanceReadout() {
+    const { triangles, calls } = viewport.stats();
+    const over = triangles > TRIANGLE_BUDGET;
+    return el('div', {}, [
+      el('p.mono' + (over ? '.warn' : ''), {},
+        `≈ ${triangles.toLocaleString()} triangles · ${calls} draw calls`),
+      over
+        ? el('p.warn', {}, `Over the ${TRIANGLE_BUDGET.toLocaleString()}-triangle mobile budget.`)
+        : null,
     ]);
   }
 

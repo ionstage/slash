@@ -4,8 +4,12 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@gltf-transform/core": "^4.4.2",
+    "@gltf-transform/extensions": "^4.4.2",
+    "@gltf-transform/functions": "^4.4.2",
     "@slash/runtime": "*",
     "@slash/schema": "*",
+    "meshoptimizer": "^1.2.0",
     "three": "^0.172.0"
   }
 }

@@ -124,6 +124,10 @@ Author the same kind of content without hand-editing JSON.
 - VAT baking: bake skeletal/morph animation to vertex animation textures for crowd/background actors; runtime VAT material. Authoring data keeps bones/morphs (editable); VAT is a runtime artifact only, honoring the spec's authoring/runtime split and mesh constraints (no vertex count/topology changes).
 - Budgets & instrumentation: frame-time HUD in preview, per-scene triangle/texture budgets surfaced in the editor.
 
+**Status (implemented):** export pipeline ships reachable-asset pruning, SHA-256 content dedupe, and meshopt compression (gltf-transform `dedup/prune/reorder/quantize` + `EXT_meshopt_compression`; encoder wasm is embedded so it runs fully client-side). DRACO and KTX2/basis are out for now — their encoders require external wasm binaries. Audio ships as-authored. Loading: scenes build lazily ahead of the scroll frontier (the M3 frontier margin doubles as streaming order), with a boot overlay and an in-flow "Loading…" indicator when scroll outruns a scene build. Stats readout (fps/triangles/draw calls) in the preview HUD and demo (`?stats`); triangle budget surfaced in the editor's scene inspector.
+
+**Deferred: VAT baking.** There is no rigged/skinned fixture asset in the repo yet, so baking code could not be exercised end to end; per the risk note above, plain glTF clip playback covers current needs. Revisit when a skinned character asset lands (bake to float position textures at export, VAT material in runtime).
+
 ### M6 — AI integration
 
 - Everything before this is prep: schemas are documented and validated, projects are plain JSON, the asset panel has an import pipeline.

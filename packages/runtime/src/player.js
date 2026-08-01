@@ -231,9 +231,11 @@ export async function createPlayer(container, bundle, { persist = true } = {}) {
     }
     // Never advance into a node whose scene is still loading.
     const limit = builtEnd();
+    let loading = false;
     if (units > limit) {
       driver.jumpTo(limit);
       units = limit;
+      loading = true;
     }
 
     const entry = entryAt(units);
@@ -253,7 +255,7 @@ export async function createPlayer(container, bundle, { persist = true } = {}) {
     const t = Math.min(1, Math.max(0, (units - entry.start) / entry.length));
     active.update(t, dt, viewer.camera, ctx);
     for (const cb of progressListeners) {
-      cb({ units, totalUnits: pathEnd(), scene: active.doc, t, autoPlay });
+      cb({ units, totalUnits: pathEnd(), scene: active.doc, t, autoPlay, loading });
     }
   });
 

@@ -5,12 +5,14 @@
  */
 import { loadProject } from './loader.js';
 import { createPlayer } from './player.js';
-import { attachHud } from './hud.js';
+import { attachHud, showBootOverlay } from './hud.js';
 
 async function main() {
+  const boot = showBootOverlay();
   const bundle = await loadProject('./');
   const player = await createPlayer(document.getElementById('app'), bundle);
   attachHud(player);
+  boot.done();
 }
 
 main().catch((err) => {

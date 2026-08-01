@@ -51,7 +51,11 @@ export function documentEntries(docs) {
     'assets/index.json': docs.assetIndex,
     'state.json': docs.state,
   };
-  for (const entry of docs.story.scenes) entries[entry.path] = docs.scenes[entry.id];
+  for (const node of docs.story.scenes) {
+    for (const entry of [node, ...(node.viewpoints ?? [])]) {
+      entries[entry.path] = docs.scenes[entry.id];
+    }
+  }
   return Object.fromEntries(
     Object.entries(entries).map(([path, doc]) => [path, JSON.stringify(doc, null, 2) + '\n']),
   );

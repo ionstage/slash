@@ -28,7 +28,7 @@ window.addEventListener('message', async (e) => {
     );
     const bundle = { ...docs, baseUrl: '', resolveAsset: (source) => urls.get(source) };
     player = await createPlayer(document.getElementById('app'), bundle, { persist: false });
-    hud = attachHud(player);
+    hud = attachHud(player, document.body, { stats: true });
     console.log('[slash] preview playing:', docs.project.title);
   } catch (err) {
     console.error(err);

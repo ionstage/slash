@@ -163,6 +163,11 @@ input[type='number'] {
   margin: 4px 0;
 }
 
+.warn {
+  color: #e8a04b;
+  margin: 4px 0;
+}
+
 #left {
   grid-area: left;
   border-right: 1px solid var(--border);

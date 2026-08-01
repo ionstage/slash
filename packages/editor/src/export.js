@@ -1,6 +1,7 @@
 import playerSource from '../../runtime/dist-player/player.js?raw';
 import { buildZip } from './zip.js';
 import { documentEntries } from './fs.js';
+import { optimizeProject } from './optimize.js';
 
 /**
  * Story export: a self-contained static site — index.html + the prebuilt
@@ -30,9 +31,11 @@ const INDEX_HTML = `<!doctype html>
 
 /**
  * @param {{ docs: any, files: Map<string, Blob> }} source
- * @returns {Promise<{ blob: Blob, paths: string[] }>}
+ * @returns {Promise<{ blob: Blob, paths: string[], report: object }>} report
+ *   summarizes the optimization pass (pruned assets, dedupe count, sizes).
  */
-export async function buildExport({ docs, files }) {
+export async function buildExport(source) {
+  const { docs, files, report } = await optimizeProject(source);
   const encoder = new TextEncoder();
   const entries = [
     {
@@ -44,10 +47,10 @@ export async function buildExport({ docs, files }) {
   for (const [path, text] of Object.entries(documentEntries(docs))) {
     entries.push({ path, data: encoder.encode(text) });
   }
-  for (const [path, blob] of files) {
-    entries.push({ path: `assets/${path}`, data: new Uint8Array(await blob.arrayBuffer()) });
+  for (const [path, data] of files) {
+    entries.push({ path: `assets/${path}`, data });
   }
-  return { blob: buildZip(entries), paths: entries.map((e) => e.path) };
+  return { blob: buildZip(entries), paths: entries.map((e) => e.path), report };
 }
 
 function escapeHtml(s) {

@@ -174,6 +174,11 @@ export function createViewport(container, store) {
     setGizmoMode(mode) {
       gizmo.setMode(mode); // 'translate' | 'rotate' | 'scale'
     },
+    /** Last-frame render stats (triangles include grid/gizmo overhead). */
+    stats() {
+      const { triangles, calls } = viewer.renderer.info.render;
+      return { triangles, calls };
+    },
     /** Current free-camera pose, for camera keyframing. */
     cameraPose() {
       return {

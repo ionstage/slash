@@ -77,7 +77,18 @@ $('btn-new').addEventListener('click', () => {
 $('btn-sample').addEventListener('click', async () => {
   try {
     const bundle = await loadProject('/');
-    store.loadBundle(bundle);
+    // Pull binary assets into the in-memory files map so save/export/preview
+    // carry them (an HTTP-loaded project has no directory handle).
+    const files = new Map();
+    await Promise.all(
+      bundle.assetIndex.assets
+        .filter((a) => a.source)
+        .map(async (a) => {
+          const res = await fetch(`/assets/${a.source}`);
+          if (res.ok) files.set(a.source, await res.blob());
+        }),
+    );
+    store.loadBundle(bundle, files);
     store.dirty = true; // in-memory copy; saving writes to a chosen location
     toast(`Loaded sample: ${bundle.project.title}`);
   } catch (err) {
@@ -124,9 +135,15 @@ $('btn-export').addEventListener('click', async () => {
     toast(`Cannot export, ${result.errors.length} error(s): ${result.errors[0].path}: ${result.errors[0].message}`, 6000);
     return;
   }
-  const { blob, paths } = await buildExport(store);
+  const { blob, paths, report } = await buildExport(store);
   downloadBlob(`${store.docs.project.id}-story.zip`, blob);
-  toast(`Exported ${paths.length} files`);
+  const kb = (n) => `${Math.round(n / 1024)} KB`;
+  const savings =
+    report.bytesBefore > 0
+      ? `, assets ${kb(report.bytesBefore)} → ${kb(report.bytesAfter)}`
+      : '';
+  const pruned = report.prunedAssets.length ? `, pruned ${report.prunedAssets.length} unused` : '';
+  toast(`Exported ${paths.length} files${savings}${pruned}`, 5000);
 });
 
 $('btn-preview').addEventListener('click', () => {

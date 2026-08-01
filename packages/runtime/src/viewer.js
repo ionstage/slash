@@ -51,10 +51,14 @@ export function createViewer(container, options = {}) {
   const tickers = new Set();
   /** @type {(() => void) | null} */
   let renderOverride = null;
+  // Manual info reset so stats readers see a whole frame's totals even
+  // when a post-processing composer issues multiple internal renders.
+  renderer.info.autoReset = false;
   const clock = new THREE.Clock();
   renderer.setAnimationLoop(() => {
     const dt = clock.getDelta();
-    for (const tick of tickers) tick(dt);
+    for (const tick of tickers) tick(dt); // reads last frame's renderer.info
+    renderer.info.reset();
     if (renderOverride) renderOverride();
     else renderer.render(scene, camera);
   });

@@ -121,6 +121,9 @@ export function validateProject(docs) {
       err(`${file}/stage/assetId`, `unknown asset "${scene.stage.assetId}"`);
     if (scene.audio?.bgm) checkAudioRef(`${file}/audio/bgm`, scene.audio.bgm);
     if (scene.audio?.ambient) checkAudioRef(`${file}/audio/ambient`, scene.audio.ambient);
+    const effectIds = new Set((scene.effects ?? []).map((e) => e.id));
+    if ((scene.effects ?? []).length !== effectIds.size)
+      err(`${file}/effects`, 'duplicate effect ids');
     const actorIds = new Set();
     for (const [i, actor] of (scene.actors ?? []).entries()) {
       if (actorIds.has(actor.id)) err(`${file}/actors/${i}/id`, `duplicate actor id "${actor.id}"`);
@@ -145,6 +148,8 @@ export function validateProject(docs) {
         if (action.type === 'setState' && !stateKeys.has(action.key))
           err(`${at}/actions/${j}/key`, `unknown state key "${action.key}"`);
         if (action.type === 'playSound') checkAudioRef(`${at}/actions/${j}/asset`, action.asset);
+        if (action.type === 'setEffect' && !effectIds.has(action.target))
+          err(`${at}/actions/${j}/target`, `unknown effect "${action.target}"`);
       }
     }
   }

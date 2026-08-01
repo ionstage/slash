@@ -67,14 +67,23 @@ export function createViewport(container, store) {
     const token = ++rebuildToken;
     const sceneDoc = store.activeScene();
     if (!sceneDoc) return;
-    const next = await createScenePlayer(sceneDoc, { assets: library });
+    const renderStyle = store.docs.project.renderStyle ?? {};
+    const next = await createScenePlayer(sceneDoc, {
+      assets: library,
+      style: renderStyle.style,
+      outline: renderStyle.outline,
+    });
     if (token !== rebuildToken) return; // superseded while loading
     if (scenePlayer) viewer.scene.remove(scenePlayer.group);
     scenePlayer = next;
     viewer.scene.add(scenePlayer.group);
+    const fog = sceneDoc.environment?.fog ?? renderStyle.post?.fog ?? null;
+    viewer.scene.fog = fog ? new THREE.Fog(fog.color, fog.near, fog.far) : null;
+    viewer.defaultLights.visible = !scenePlayer.hasLights;
     applyProgress();
     attachGizmo();
   }
+  viewer.onTick((dt) => scenePlayer?.tickAmbient(dt));
 
   function applyProgress() {
     scenePlayer?.update(progress, 0, cameraPreview ? viewer.camera : scratchCamera, noopCtx);

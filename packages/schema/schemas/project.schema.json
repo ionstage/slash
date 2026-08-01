@@ -22,11 +22,44 @@
       "additionalProperties": false,
       "description": "Project-wide look. The default Slash style is realistic toon.",
       "properties": {
-        "style": { "enum": ["toon", "realistic", "illustration", "lowpoly"], "description": "Base rendering style preset." },
+        "style": { "enum": ["toon", "realistic", "illustration", "lowpoly"], "description": "Base rendering style preset. toon/illustration = ramp shading; lowpoly = flat shading; realistic = PBR as imported." },
         "background": {
           "type": "string",
           "pattern": "^#[0-9a-fA-F]{6}$",
           "description": "Clear color as #rrggbb."
+        },
+        "outline": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Toon outline (inverted-hull) around meshes.",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+            "thickness": { "type": "number", "minimum": 0, "maximum": 0.1, "description": "Hull scale offset; ~0.02 is a good default." }
+          }
+        },
+        "post": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Post-processing defaults. Scenes can opt out with \"post\": false.",
+          "properties": {
+            "bloom": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "strength": { "type": "number", "minimum": 0, "maximum": 3 },
+                "threshold": { "type": "number", "minimum": 0, "maximum": 1 }
+              }
+            },
+            "vignette": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "strength": { "type": "number", "minimum": 0, "maximum": 1 }
+              }
+            },
+            "fog": { "$ref": "#/$defs/fog" }
+          }
         }
       }
     },
@@ -46,6 +79,19 @@
           "maximum": 2,
           "description": "Playback Mode speed in viewport-heights per second. Default 0.35."
         }
+      }
+    }
+  },
+  "$defs": {
+    "fog": {
+      "type": "object",
+      "required": ["color", "near", "far"],
+      "additionalProperties": false,
+      "description": "Linear distance fog.",
+      "properties": {
+        "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+        "near": { "type": "number", "minimum": 0 },
+        "far": { "type": "number", "exclusiveMinimum": 0 }
       }
     }
   }

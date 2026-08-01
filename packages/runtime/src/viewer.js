@@ -5,6 +5,10 @@ import * as THREE from 'three';
  * camera, resize handling and a render loop. Used by the runtime player and
  * embedded by the editor as its viewport.
  *
+ * Default lights live in `defaultLights` so scenes that author their own
+ * lighting can switch them off. A render override (post-processing
+ * composer) can replace the plain render call.
+ *
  * @param {HTMLElement} container
  * @param {{ background?: string, maxPixelRatio?: number }} [options]
  */
@@ -20,10 +24,16 @@ export function createViewer(container, options = {}) {
   camera.position.set(4, 3, 6);
   camera.lookAt(0, 1, 0);
 
-  scene.add(new THREE.AmbientLight('#8890b0', 0.8));
+  const defaultLights = new THREE.Group();
+  defaultLights.name = 'defaultLights';
+  defaultLights.add(new THREE.AmbientLight('#8890b0', 0.8));
   const sun = new THREE.DirectionalLight('#fff4e0', 2);
   sun.position.set(5, 10, 5);
-  scene.add(sun);
+  defaultLights.add(sun);
+  scene.add(defaultLights);
+
+  /** @type {Set<(w: number, h: number) => void>} */
+  const resizeListeners = new Set();
 
   function resize() {
     const { clientWidth: w, clientHeight: h } = container;
@@ -31,6 +41,7 @@ export function createViewer(container, options = {}) {
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
+    for (const fn of resizeListeners) fn(w, h);
   }
   const observer = new ResizeObserver(resize);
   observer.observe(container);
@@ -38,11 +49,14 @@ export function createViewer(container, options = {}) {
 
   /** @type {Set<(dt: number) => void>} */
   const tickers = new Set();
+  /** @type {(() => void) | null} */
+  let renderOverride = null;
   const clock = new THREE.Clock();
   renderer.setAnimationLoop(() => {
     const dt = clock.getDelta();
     for (const tick of tickers) tick(dt);
-    renderer.render(scene, camera);
+    if (renderOverride) renderOverride();
+    else renderer.render(scene, camera);
   });
 
   document.addEventListener('visibilitychange', () => {
@@ -54,10 +68,20 @@ export function createViewer(container, options = {}) {
     renderer,
     scene,
     camera,
+    defaultLights,
     /** Register a per-frame callback; returns an unsubscribe function. */
     onTick(fn) {
       tickers.add(fn);
       return () => tickers.delete(fn);
+    },
+    /** Register a resize callback (w, h in CSS pixels); returns unsubscribe. */
+    onResize(fn) {
+      resizeListeners.add(fn);
+      return () => resizeListeners.delete(fn);
+    },
+    /** Replace the plain render call (post-processing composer). Pass null to restore. */
+    setRenderOverride(fn) {
+      renderOverride = fn;
     },
     dispose() {
       observer.disconnect();

@@ -6,6 +6,37 @@
   "stage": {
     "assetId": "shrine-stage"
   },
+  "environment": {
+    "fog": { "color": "#141824", "near": 5, "far": 32 }
+  },
+  "lights": [
+    { "id": "night", "type": "ambient", "color": [0.4, 0.45, 0.65], "intensity": 0.9 },
+    {
+      "id": "spirit-glow",
+      "type": "point",
+      "color": [0.62, 0.85, 1],
+      "intensity": 8,
+      "distance": 10,
+      "position": [0, 1.4, -1],
+      "tracks": {
+        "position": [
+          { "t": 0, "value": [0, 1.4, -1] },
+          { "t": 1, "value": [0, 3.4, -1], "easing": "easeInOut" }
+        ]
+      }
+    }
+  ],
+  "effects": [
+    {
+      "id": "blessing-sparks",
+      "preset": "sparks",
+      "count": 220,
+      "color": "#ffd77a",
+      "area": [4, 5, 4],
+      "position": [0, 2.5, -1],
+      "enabled": false
+    }
+  ],
   "actors": [
     {
       "id": "traveler",
@@ -41,7 +72,10 @@
     {
       "id": "blessed",
       "trigger": { "type": "progress", "at": 0.2 },
-      "actions": [{ "type": "log", "message": "A gentle light blesses the traveler." }]
+      "actions": [
+        { "type": "log", "message": "A gentle light blesses the traveler." },
+        { "type": "setEffect", "target": "blessing-sparks", "enabled": true }
+      ]
     },
     {
       "id": "return-to-meadow",

@@ -7,6 +7,44 @@
     "assetId": "meadow-stage"
   },
   "audio": { "ambient": "wind" },
+  "environment": {
+    "fog": { "color": "#1a1a2e", "near": 10, "far": 48 }
+  },
+  "lights": [
+    { "id": "sky", "type": "ambient", "color": [0.45, 0.45, 0.62], "intensity": 0.9 },
+    {
+      "id": "sun",
+      "type": "directional",
+      "color": [1, 0.82, 0.55],
+      "intensity": 2,
+      "position": [6, 10, 4],
+      "tracks": {
+        "intensity": [
+          { "t": 0, "value": 2 },
+          { "t": 1, "value": 0.7, "easing": "easeInOut" }
+        ],
+        "color": [
+          { "t": 0, "value": [1, 0.82, 0.55] },
+          { "t": 1, "value": [0.55, 0.6, 0.9], "easing": "easeInOut" }
+        ]
+      }
+    }
+  ],
+  "effects": [
+    {
+      "id": "fireflies",
+      "preset": "fireflies",
+      "count": 80,
+      "area": [30, 5, 44],
+      "position": [0, 1.8, -8],
+      "tracks": {
+        "intensity": [
+          { "t": 0, "value": 0.2 },
+          { "t": 1, "value": 1, "easing": "easeIn" }
+        ]
+      }
+    }
+  ],
   "actors": [
     {
       "id": "traveler",

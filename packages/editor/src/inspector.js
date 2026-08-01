@@ -110,10 +110,303 @@ export function createInspector(container, store, viewport) {
         // Keep position and lookAt keys paired when deleting.
         scene.camera.tracks.lookAt.splice(i, 1);
       }),
+      el('h3', {}, 'Fog'),
+      fogEditor(scene),
+      el('h3', {}, 'Lights'),
+      ...lightsEditor(scene),
+      el('h3', {}, 'Effects'),
+      ...effectsEditor(scene),
       ...(storyNode ? renderBranching(storyNode) : []),
       el('h3', {}, 'Events'),
       ...renderEvents(scene),
+      el('h3', {}, 'Project style'),
+      ...projectStyleEditor(),
     ]);
+  }
+
+  function colorInput(value, onChange, title = 'color') {
+    return el('input', {
+      type: 'color',
+      value,
+      title,
+      onchange: (e) => onChange(e.target.value),
+    });
+  }
+
+  function smallNumber(value, onChange, { step = 0.1, width = 56, title = '' } = {}) {
+    return el('input', {
+      type: 'number',
+      step: String(step),
+      value,
+      title,
+      style: `width: ${width}px`,
+      onchange: (e) => onChange(Number(e.target.value)),
+    });
+  }
+
+  const rgbToHex = (rgb = [1, 1, 1]) =>
+    '#' + rgb.map((v) => Math.round(v * 255).toString(16).padStart(2, '0')).join('');
+  const hexToRgb = (hex) =>
+    [1, 3, 5].map((i) => Math.round((parseInt(hex.slice(i, i + 2), 16) / 255) * 1000) / 1000);
+
+  function fogEditor(scene) {
+    const fog = scene.environment?.fog;
+    if (!fog) {
+      return el('div.row', {}, [
+        el('span.placeholder.grow', {}, 'No scene fog (project default applies).'),
+        el('button.mini', {
+          textContent: '+',
+          title: 'Add fog',
+          onclick: () => {
+            (scene.environment ??= {}).fog = { color: '#1a1a2e', near: 8, far: 40 };
+            touchScene();
+          },
+        }),
+      ]);
+    }
+    return el('div.row', {}, [
+      colorInput(fog.color, (v) => {
+        fog.color = v;
+        touchScene();
+      }),
+      smallNumber(fog.near, (v) => {
+        fog.near = v;
+        touchScene();
+      }, { step: 1, title: 'near' }),
+      smallNumber(fog.far, (v) => {
+        fog.far = v;
+        touchScene();
+      }, { step: 1, title: 'far' }),
+      el('button.mini', {
+        textContent: '×',
+        title: 'Remove fog',
+        onclick: () => {
+          delete scene.environment.fog;
+          if (Object.keys(scene.environment).length === 0) delete scene.environment;
+          touchScene();
+        },
+      }),
+    ]);
+  }
+
+  function lightsEditor(scene) {
+    const lights = (scene.lights ??= []);
+    const rows = lights.map((light, i) =>
+      el('div.event-card', {}, [
+        el('div.row', {}, [
+          el(
+            'select',
+            {
+              onchange: (e) => {
+                light.type = e.target.value;
+                touchScene();
+              },
+            },
+            ['ambient', 'directional', 'point'].map((t) =>
+              el('option', { value: t, selected: light.type === t }, t),
+            ),
+          ),
+          colorInput(rgbToHex(light.color), (v) => {
+            light.color = hexToRgb(v);
+            touchScene();
+          }),
+          smallNumber(light.intensity ?? 1, (v) => {
+            light.intensity = v;
+            touchScene();
+          }, { title: 'intensity' }),
+          el('button.mini', {
+            textContent: '×',
+            onclick: () => {
+              lights.splice(i, 1);
+              if (lights.length === 0) delete scene.lights;
+              touchScene();
+            },
+          }),
+        ]),
+        light.type !== 'ambient'
+          ? el('div.row', {}, [
+              el('span', {}, 'pos'),
+              ...[0, 1, 2].map((axis) =>
+                smallNumber((light.position ?? [0, 5, 0])[axis], (v) => {
+                  light.position ??= [0, 5, 0];
+                  light.position[axis] = v;
+                  touchScene();
+                }, { width: 52 }),
+              ),
+            ])
+          : null,
+      ]),
+    );
+    return [
+      ...rows,
+      el('button.mini-wide', {
+        textContent: '+ light',
+        onclick: () => {
+          lights.push({
+            id: uniqueId('light', new Set(lights.map((l) => l.id))),
+            type: 'directional',
+            color: [1, 1, 1],
+            intensity: 1.5,
+            position: [5, 10, 5],
+          });
+          touchScene();
+        },
+      }),
+    ];
+  }
+
+  function effectsEditor(scene) {
+    const effects = (scene.effects ??= []);
+    const rows = effects.map((effect, i) =>
+      el('div.event-card', {}, [
+        el('div.row', {}, [
+          el(
+            'select',
+            {
+              onchange: (e) => {
+                effect.preset = e.target.value;
+                touchScene();
+              },
+            },
+            ['rain', 'snow', 'sparks', 'fireflies'].map((p) =>
+              el('option', { value: p, selected: effect.preset === p }, p),
+            ),
+          ),
+          smallNumber(effect.count ?? 200, (v) => {
+            effect.count = Math.round(v);
+            touchScene();
+          }, { step: 10, title: 'count' }),
+          el('label.check', {}, [
+            el('input', {
+              type: 'checkbox',
+              checked: effect.enabled !== false,
+              onchange: (e) => {
+                if (e.target.checked) delete effect.enabled;
+                else effect.enabled = false;
+                touchScene();
+              },
+            }),
+            'on',
+          ]),
+          el('button.mini', {
+            textContent: '×',
+            onclick: () => {
+              effects.splice(i, 1);
+              if (effects.length === 0) delete scene.effects;
+              touchScene();
+            },
+          }),
+        ]),
+        el('div.row', {}, [
+          el('span', {}, 'pos'),
+          ...[0, 1, 2].map((axis) =>
+            smallNumber((effect.position ?? [0, 5, 0])[axis], (v) => {
+              effect.position ??= [0, 5, 0];
+              effect.position[axis] = v;
+              touchScene();
+            }, { width: 52 }),
+          ),
+        ]),
+      ]),
+    );
+    return [
+      ...rows,
+      el('button.mini-wide', {
+        textContent: '+ effect',
+        onclick: () => {
+          effects.push({
+            id: uniqueId('effect', new Set(effects.map((e) => e.id))),
+            preset: 'snow',
+            count: 300,
+          });
+          touchScene();
+        },
+      }),
+    ];
+  }
+
+  function projectStyleEditor() {
+    const rs = (store.docs.project.renderStyle ??= {});
+    const touchProject = () => store.touch('project', { source: 'inspector' });
+    return [
+      el('label.field', {}, [
+        'Style',
+        el(
+          'select',
+          {
+            onchange: (e) => {
+              rs.style = e.target.value;
+              touchProject();
+            },
+          },
+          ['toon', 'realistic', 'illustration', 'lowpoly'].map((s) =>
+            el('option', { value: s, selected: (rs.style ?? 'toon') === s }, s),
+          ),
+        ),
+      ]),
+      el('div.row', {}, [
+        el('label.check', {}, [
+          el('input', {
+            type: 'checkbox',
+            checked: Boolean(rs.outline?.enabled),
+            onchange: (e) => {
+              (rs.outline ??= {}).enabled = e.target.checked;
+              touchProject();
+            },
+          }),
+          'outline',
+        ]),
+        colorInput(rs.outline?.color ?? '#000000', (v) => {
+          (rs.outline ??= {}).color = v;
+          touchProject();
+        }),
+        smallNumber(rs.outline?.thickness ?? 0.02, (v) => {
+          (rs.outline ??= {}).thickness = v;
+          touchProject();
+        }, { step: 0.005, title: 'thickness' }),
+      ]),
+      el('div.row', {}, [
+        el('label.check', {}, [
+          el('input', {
+            type: 'checkbox',
+            checked: Boolean(rs.post?.bloom),
+            onchange: (e) => {
+              if (e.target.checked) ((rs.post ??= {}).bloom ??= { strength: 0.6, threshold: 0.8 });
+              else delete rs.post.bloom;
+              touchProject();
+            },
+          }),
+          'bloom',
+        ]),
+        smallNumber(rs.post?.bloom?.strength ?? 0.6, (v) => {
+          ((rs.post ??= {}).bloom ??= {}).strength = v;
+          touchProject();
+        }, { title: 'strength' }),
+        smallNumber(rs.post?.bloom?.threshold ?? 0.8, (v) => {
+          ((rs.post ??= {}).bloom ??= {}).threshold = v;
+          touchProject();
+        }, { title: 'threshold' }),
+      ]),
+      el('div.row', {}, [
+        el('label.check', {}, [
+          el('input', {
+            type: 'checkbox',
+            checked: Boolean(rs.post?.vignette),
+            onchange: (e) => {
+              if (e.target.checked) ((rs.post ??= {}).vignette ??= { strength: 0.35 });
+              else delete rs.post.vignette;
+              touchProject();
+            },
+          }),
+          'vignette',
+        ]),
+        smallNumber(rs.post?.vignette?.strength ?? 0.35, (v) => {
+          ((rs.post ??= {}).vignette ??= {}).strength = v;
+          touchProject();
+        }, { title: 'strength' }),
+      ]),
+      el('p.placeholder', {}, 'Post effects show in Preview and exports.'),
+    ];
   }
 
   function audioSelect(label, scene, key) {

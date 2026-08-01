@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { sampleTrack } from './tracks.js';
 import { evalCondition } from './conditions.js';
+import { applyStyle } from './styles.js';
+import { createEffect } from './effects.js';
 
 const DEG = Math.PI / 180;
 
@@ -13,15 +15,22 @@ const DEG = Math.PI / 180;
  * @param {{
  *   assets: ReturnType<import('./assets.js').createAssetLibrary>,
  *   getState?: (key: string) => unknown,
+ *   style?: string,
+ *   outline?: object,
  * }} deps getState powers `when` gates, state triggers and visibleWhen;
- *   defaults to "no state" (all conditions with a key fail).
+ *   defaults to "no state" (all conditions with a key fail). style/outline
+ *   come from project.renderStyle.
  */
-export async function createScenePlayer(sceneDoc, { assets, getState = () => undefined }) {
+export async function createScenePlayer(
+  sceneDoc,
+  { assets, getState = () => undefined, style = 'toon', outline = {} },
+) {
   const group = new THREE.Group();
   group.name = `scene:${sceneDoc.id}`;
 
   const stage = await assets.instantiate(sceneDoc.stage.assetId);
   applyTransform(stage.object, sceneDoc.stage.transform);
+  applyStyle(stage.object, style, outline);
   group.add(stage.object);
 
   /** @type {Map<string, {def: any, object: import('three').Object3D, clips: any[], mixer: THREE.AnimationMixer | null}>} */
@@ -30,6 +39,7 @@ export async function createScenePlayer(sceneDoc, { assets, getState = () => und
     const { object, clips } = await assets.instantiate(def.assetId);
     object.userData.slashActorId = def.id;
     applyTransform(object, def.transform);
+    applyStyle(object, style, outline);
     const mixer = clips.length > 0 ? new THREE.AnimationMixer(object) : null;
     if (mixer && def.idleClip) {
       const clip = THREE.AnimationClip.findByName(clips, def.idleClip);
@@ -38,6 +48,32 @@ export async function createScenePlayer(sceneDoc, { assets, getState = () => und
     }
     actors.set(def.id, { def, object, clips, mixer });
     group.add(object);
+  }
+
+  // Scene lighting: when authored, the player switches the viewer's
+  // default lights off (see hasLights).
+  const lights = new Map();
+  for (const def of sceneDoc.lights ?? []) {
+    const color = new THREE.Color(...(def.color ?? [1, 1, 1]));
+    const intensity = def.intensity ?? 1;
+    let light;
+    if (def.type === 'ambient') light = new THREE.AmbientLight(color, intensity);
+    else if (def.type === 'point') light = new THREE.PointLight(color, intensity, def.distance ?? 0);
+    else {
+      light = new THREE.DirectionalLight(color, intensity);
+      light.target.position.fromArray(def.target ?? [0, 0, 0]);
+      group.add(light.target);
+    }
+    if (def.position) light.position.fromArray(def.position);
+    lights.set(def.id, { def, light });
+    group.add(light);
+  }
+
+  const effects = new Map();
+  for (const def of sceneDoc.effects ?? []) {
+    const effect = createEffect(def);
+    effects.set(def.id, effect);
+    group.add(effect.object);
   }
 
   let lastT = 0;
@@ -58,10 +94,31 @@ export async function createScenePlayer(sceneDoc, { assets, getState = () => und
     }
   }
 
+  function updateLightsAndEffects(t, dt) {
+    for (const { def, light } of lights.values()) {
+      const tracks = def.tracks ?? {};
+      if (tracks.intensity) light.intensity = sampleTrack(tracks.intensity, t);
+      if (tracks.color) light.color.setRGB(...sampleTrack(tracks.color, t));
+      if (tracks.position) light.position.fromArray(sampleTrack(tracks.position, t));
+    }
+    for (const effect of effects.values()) effect.update(dt, t);
+  }
+
   return {
     doc: sceneDoc,
     group,
     actors,
+    effects,
+    hasLights: lights.size > 0,
+
+    /**
+     * Ambient-only advance (idle clips, particles) without touching
+     * progress, camera or events — used by the editor viewport.
+     */
+    tickAmbient(dt) {
+      for (const { mixer } of actors.values()) mixer?.update(dt);
+      updateLightsAndEffects(lastT, dt);
+    },
 
     /**
      * Advance the scene to progress t.
@@ -90,6 +147,7 @@ export async function createScenePlayer(sceneDoc, { assets, getState = () => und
       camera.updateProjectionMatrix();
 
       applyVisibility();
+      updateLightsAndEffects(t, dt);
 
       for (const event of sceneDoc.events ?? []) {
         if (event.trigger.type === 'progress') {

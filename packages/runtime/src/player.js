@@ -6,6 +6,7 @@ import { createScrollDriver } from './scroll.js';
 import { createStateStore } from './state.js';
 import { createAudioSystem } from './audio.js';
 import { resolveNext } from './conditions.js';
+import { createPostPipeline } from './post.js';
 
 const DEFAULT_SCROLL_LENGTH = 3;
 const DEFAULT_AUTO_SPEED = 0.35; // viewport-heights per second
@@ -41,6 +42,10 @@ export async function createPlayer(container, bundle, { persist = true } = {}) {
   const audio = createAudioSystem(bundle.assetIndex, resolveAsset);
   const autoSpeed = bundle.project.settings?.autoScrollSpeed ?? DEFAULT_AUTO_SPEED;
 
+  const renderStyle = bundle.project.renderStyle ?? {};
+  const postPipeline = renderStyle.post ? createPostPipeline(viewer, renderStyle.post) : null;
+  if (postPipeline) viewer.setRenderOverride(() => postPipeline.render());
+
   const storyNodes = new Map(bundle.story.scenes.map((s) => [s.id, s]));
   const scenePlayers = new Map(); // scene doc id → scenePlayer (shared across path revisits)
 
@@ -48,7 +53,12 @@ export async function createPlayer(container, bundle, { persist = true } = {}) {
     if (!scenePlayers.has(sceneId)) {
       scenePlayers.set(
         sceneId,
-        await createScenePlayer(bundle.scenes[sceneId], { assets, getState: state.get }),
+        await createScenePlayer(bundle.scenes[sceneId], {
+          assets,
+          getState: state.get,
+          style: renderStyle.style,
+          outline: renderStyle.outline,
+        }),
       );
     }
     return scenePlayers.get(sceneId);
@@ -125,6 +135,12 @@ export async function createPlayer(container, bundle, { persist = true } = {}) {
           if (actor) actor.object.visible = action.visible;
           break;
         }
+        case 'setEffect': {
+          const effect = scene.effects.get(action.target);
+          if (effect) effect.setEnabled(action.enabled);
+          else console.warn(`[slash] setEffect: unknown effect "${action.target}"`);
+          break;
+        }
         case 'playAnimation': {
           const actor = scene.actors.get(action.target);
           const clip = actor && THREE.AnimationClip.findByName(actor.clips, action.clip);
@@ -191,6 +207,14 @@ export async function createPlayer(container, bundle, { persist = true } = {}) {
     audio.setAmbient(doc.audio?.ambient ?? null);
   }
 
+  function applyAtmosphere(scenePlayer) {
+    const doc = scenePlayer.doc;
+    const fog = doc.environment?.fog ?? renderStyle.post?.fog ?? null;
+    viewer.scene.fog = fog ? new THREE.Fog(fog.color, fog.near, fog.far) : null;
+    viewer.defaultLights.visible = !scenePlayer.hasLights;
+    postPipeline?.setEnabled(doc.post !== false);
+  }
+
   viewer.onTick((dt) => {
     if (autoPlay) driver.advance(autoSpeed * dt);
     let units = driver.update(dt);
@@ -222,6 +246,7 @@ export async function createPlayer(container, bundle, { persist = true } = {}) {
       active = scenePlayer;
       activeEntry = entry;
       applyAudio(scenePlayer.doc);
+      applyAtmosphere(scenePlayer);
       notifyViewpoint();
     }
     activeEntry = entry;
@@ -300,6 +325,7 @@ export async function createPlayer(container, bundle, { persist = true } = {}) {
       window.removeEventListener('keydown', onKey);
       driver.dispose();
       audio.dispose();
+      postPipeline?.dispose();
       viewer.dispose();
     },
   };

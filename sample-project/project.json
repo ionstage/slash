@@ -5,7 +5,12 @@
   "description": "Sample fixture: a traveler crosses a meadow at dusk and discovers a small shrine.",
   "renderStyle": {
     "style": "toon",
-    "background": "#1a1a2e"
+    "background": "#1a1a2e",
+    "outline": { "enabled": true, "color": "#10101a", "thickness": 0.02 },
+    "post": {
+      "bloom": { "strength": 0.55, "threshold": 0.72 },
+      "vignette": { "strength": 0.4 }
+    }
   },
   "settings": {
     "maxPixelRatio": 2

@@ -89,6 +89,87 @@
         "ambient": { "type": "string", "description": "Audio asset id, looped as environment sound." }
       }
     },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Scene atmosphere overrides.",
+      "properties": {
+        "fog": {
+          "type": "object",
+          "required": ["color", "near", "far"],
+          "additionalProperties": false,
+          "description": "Linear fog for this scene (overrides the project default).",
+          "properties": {
+            "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+            "near": { "type": "number", "minimum": 0 },
+            "far": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        }
+      }
+    },
+    "post": {
+      "type": "boolean",
+      "description": "Set false to disable the project's post-processing chain in this scene."
+    },
+    "lights": {
+      "type": "array",
+      "description": "Scene lighting. When present, replaces the runtime's default lights. Tracks animate over scene progress (time-of-day transitions).",
+      "items": {
+        "type": "object",
+        "required": ["id", "type"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+          "type": { "enum": ["ambient", "directional", "point"] },
+          "color": {
+            "$ref": "#/$defs/vec3",
+            "description": "RGB in [0,1] (array form so it can be keyframed)."
+          },
+          "intensity": { "type": "number", "minimum": 0 },
+          "position": { "$ref": "#/$defs/vec3" },
+          "target": { "$ref": "#/$defs/vec3", "description": "Aim point (directional lights)." },
+          "distance": { "type": "number", "minimum": 0, "description": "Point light falloff distance (0 = infinite)." },
+          "tracks": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "intensity": { "$ref": "#/$defs/numberTrack" },
+              "color": { "$ref": "#/$defs/vec3Track" },
+              "position": { "$ref": "#/$defs/vec3Track" }
+            }
+          }
+        }
+      }
+    },
+    "effects": {
+      "type": "array",
+      "description": "Ambient particle effects, driven by presets and toggled by events (setEffect).",
+      "items": {
+        "type": "object",
+        "required": ["id", "preset"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+          "preset": { "enum": ["rain", "snow", "sparks", "fireflies"] },
+          "enabled": { "type": "boolean", "description": "Initial state; default true." },
+          "count": { "type": "integer", "minimum": 1, "maximum": 5000 },
+          "area": { "$ref": "#/$defs/vec3", "description": "Emission box size in meters. Default [20,10,20]." },
+          "position": { "$ref": "#/$defs/vec3", "description": "Center of the emission box." },
+          "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+          "size": { "type": "number", "exclusiveMinimum": 0, "description": "Particle size in world units." },
+          "tracks": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "intensity": {
+                "$ref": "#/$defs/numberTrack",
+                "description": "0..1 opacity/emission multiplier over scene progress."
+              }
+            }
+          }
+        }
+      }
+    },
     "events": {
       "type": "array",
       "description": "Data-driven events: a trigger fires its actions.",
@@ -200,6 +281,16 @@
                     "type": { "const": "setVisible" },
                     "target": { "type": "string", "description": "Actor id to show or hide." },
                     "visible": { "type": "boolean" }
+                  }
+                },
+                {
+                  "type": "object",
+                  "required": ["type", "target", "enabled"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "type": { "const": "setEffect" },
+                    "target": { "type": "string", "description": "Effect id to enable or disable." },
+                    "enabled": { "type": "boolean" }
                   }
                 }
               ]

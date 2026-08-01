@@ -7,10 +7,11 @@
   ],
   "scripts": {
     "dev:runtime": "vite packages/runtime",
-    "dev:editor": "vite packages/editor",
+    "dev:editor": "npm run build:player && vite packages/editor",
     "build": "npm run build:runtime && npm run build:editor",
     "build:runtime": "vite build packages/runtime",
-    "build:editor": "vite build packages/editor",
+    "build:player": "vite build packages/runtime --config packages/runtime/vite.player.config.js",
+    "build:editor": "npm run build:player && vite build packages/editor",
     "validate": "node scripts/validate-sample.js",
     "test": "node --test 'packages/*/test/*.test.js'",
     "lint": "eslint packages scripts",

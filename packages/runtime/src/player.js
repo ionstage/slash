@@ -22,7 +22,8 @@ export async function createPlayer(container, bundle) {
     maxPixelRatio: bundle.project.settings?.maxPixelRatio,
   });
   const state = createStateStore(bundle.state);
-  const assets = createAssetLibrary(bundle.assetIndex, bundle.baseUrl);
+  const resolveAsset = bundle.resolveAsset ?? ((source) => `${bundle.baseUrl}assets/${source}`);
+  const assets = createAssetLibrary(bundle.assetIndex, resolveAsset);
 
   // Linear scene chain: follow `next` links from the story's start scene.
   // Guards against cycles; branching replaces this in M3.

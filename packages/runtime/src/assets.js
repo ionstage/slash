@@ -12,9 +12,12 @@ import { clone as cloneWithSkeleton } from 'three/addons/utils/SkeletonUtils.js'
  * files. Meshopt-compressed glTF works out of the box.
  *
  * @param {{ assets: Array<any> }} assetIndex
- * @param {string} baseUrl Project base URL; gltf sources resolve against `${baseUrl}assets/`.
+ * @param {(source: string) => string} resolveAsset Maps an asset `source`
+ *   path (relative to assets/) to a fetchable URL. The player passes a
+ *   baseUrl-based default; the editor preview passes blob URLs for
+ *   in-memory files.
  */
-export function createAssetLibrary(assetIndex, baseUrl) {
+export function createAssetLibrary(assetIndex, resolveAsset) {
   const gltfLoader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
   const byId = new Map(assetIndex.assets.map((a) => [a.id, a]));
   /** @type {Map<string, Promise<{object: import('three').Object3D, clips: import('three').AnimationClip[]}>>} */
@@ -25,7 +28,7 @@ export function createAssetLibrary(assetIndex, baseUrl) {
       return Promise.resolve({ object: buildPrimitive(def.primitive), clips: [] });
     }
     return gltfLoader
-      .loadAsync(`${baseUrl}assets/${def.source}`)
+      .loadAsync(resolveAsset(def.source))
       .then((gltf) => ({ object: gltf.scene, clips: gltf.animations }));
   }
 

@@ -10,22 +10,61 @@
     <div id="app">
       <header id="topbar">
         <span class="logo">Slash</span>
-        <span class="project-title">No project open</span>
+        <button id="btn-new">New</button>
+        <button id="btn-open" title="Open a project directory (Chromium only)">Open…</button>
+        <button id="btn-sample">Sample</button>
+        <span class="sep"></span>
+        <button id="btn-save">Save</button>
+        <button id="btn-export">Export</button>
+        <button id="btn-preview">▶ Preview</button>
+        <span id="project-title" class="project-title">No project open</span>
+        <span id="dirty-dot" class="dirty" hidden>●</span>
       </header>
-      <aside id="hierarchy" class="panel">
-        <h2>Hierarchy</h2>
-        <p class="placeholder">Open a project to see scenes and actors.</p>
+
+      <aside id="left" class="panel">
+        <section>
+          <h2>Scenes <button id="btn-add-scene" class="mini" title="Add scene">+</button></h2>
+          <div id="scene-list"></div>
+        </section>
+        <section>
+          <h2>Hierarchy</h2>
+          <div id="object-list"></div>
+        </section>
+        <section id="assets-section">
+          <h2>Assets</h2>
+          <div id="asset-list"></div>
+          <div id="drop-zone">Drop .glb / .gltf here to import</div>
+        </section>
       </aside>
+
       <main id="viewport"></main>
+
       <aside id="inspector" class="panel">
-        <h2>Inspector</h2>
-        <p class="placeholder">Select an object to edit it.</p>
+        <div id="inspector-body"></div>
       </aside>
+
       <footer id="timeline" class="panel">
-        <h2>Progress</h2>
+        <span class="hint-key" title="Gizmo: W translate · E rotate · R scale">W/E/R</span>
         <input type="range" id="progress-scrubber" min="0" max="1" step="0.001" value="0" disabled />
+        <span id="t-label" class="mono">t=0.00</span>
+        <button id="btn-set-key" disabled>Set camera key</button>
+        <button id="btn-delete-key" disabled>Delete key</button>
+        <label class="check"
+          ><input type="checkbox" id="camera-preview-toggle" /> Camera preview</label
+        >
       </footer>
     </div>
+
+    <div id="preview-overlay" hidden tabindex="-1">
+      <div class="preview-bar">
+        <button id="btn-preview-mobile">Mobile view</button>
+        <button id="btn-preview-close">✕ Close</button>
+      </div>
+      <div id="preview-frame-wrap"><iframe id="preview-iframe" title="Preview"></iframe></div>
+    </div>
+
+    <div id="toast" hidden></div>
+
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

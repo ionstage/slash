@@ -1,0 +1,46 @@
+{
+  "$id": "slash/project",
+  "title": "Slash project manifest (project.json)",
+  "description": "Top-level manifest of a Slash project. Points at the story and holds project-wide settings.",
+  "type": "object",
+  "required": ["formatVersion", "id", "title"],
+  "additionalProperties": false,
+  "properties": {
+    "formatVersion": {
+      "const": 1,
+      "description": "Content format version. Bumped on breaking changes; loaders migrate old versions."
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "description": "Stable project identifier (kebab-case)."
+    },
+    "title": { "type": "string", "description": "Human-readable project title." },
+    "description": { "type": "string" },
+    "renderStyle": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Project-wide look. The default Slash style is realistic toon.",
+      "properties": {
+        "style": { "enum": ["toon", "realistic", "illustration", "lowpoly"], "description": "Base rendering style preset." },
+        "background": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "description": "Clear color as #rrggbb."
+        }
+      }
+    },
+    "settings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "maxPixelRatio": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 3,
+          "description": "Cap on devicePixelRatio for mobile performance."
+        }
+      }
+    }
+  }
+}

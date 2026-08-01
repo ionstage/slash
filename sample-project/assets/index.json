@@ -1,0 +1,45 @@
+{
+  "formatVersion": 1,
+  "assets": [
+    {
+      "id": "traveler",
+      "name": "Traveler",
+      "type": "character",
+      "kind": "primitive",
+      "primitive": { "shape": "capsule", "size": [0.6, 1.7, 0.6], "color": "#e8b04b" },
+      "tags": ["protagonist"]
+    },
+    {
+      "id": "meadow-stage",
+      "name": "Dusk Meadow",
+      "type": "stage",
+      "kind": "primitive",
+      "primitive": { "shape": "plane", "size": [40, 1, 60], "color": "#3a5a40" },
+      "tags": ["outdoor", "meadow"]
+    },
+    {
+      "id": "shrine-stage",
+      "name": "Shrine Clearing",
+      "type": "stage",
+      "kind": "primitive",
+      "primitive": { "shape": "plane", "size": [24, 1, 24], "color": "#2f3e46" },
+      "tags": ["outdoor", "shrine", "night"]
+    },
+    {
+      "id": "tree",
+      "name": "Old Tree",
+      "type": "prop",
+      "kind": "primitive",
+      "primitive": { "shape": "cylinder", "size": [0.8, 6, 0.8], "color": "#5c4033" },
+      "tags": ["nature"]
+    },
+    {
+      "id": "bell",
+      "name": "Shrine Bell",
+      "type": "prop",
+      "kind": "primitive",
+      "primitive": { "shape": "sphere", "size": [0.5, 0.5, 0.5], "color": "#c9a227" },
+      "tags": ["shrine", "interactive"]
+    }
+  ]
+}

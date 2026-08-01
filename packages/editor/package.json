@@ -1,0 +1,11 @@
+{
+  "name": "@slash/editor",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@slash/runtime": "*",
+    "@slash/schema": "*",
+    "three": "^0.172.0"
+  }
+}

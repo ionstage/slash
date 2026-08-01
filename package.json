@@ -1,0 +1,28 @@
+{
+  "name": "slash",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:runtime": "vite packages/runtime",
+    "dev:editor": "vite packages/editor",
+    "build": "npm run build:runtime && npm run build:editor",
+    "build:runtime": "vite build packages/runtime",
+    "build:editor": "vite build packages/editor",
+    "validate": "node scripts/validate-sample.js",
+    "lint": "eslint packages scripts",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.9.0",
+    "eslint": "^9.9.0",
+    "globals": "^15.9.0",
+    "prettier": "^3.3.0",
+    "vite": "^6.0.0"
+  },
+  "allowScripts": {
+    "esbuild@0.25.12": true
+  }
+}

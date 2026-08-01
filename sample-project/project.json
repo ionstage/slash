@@ -1,0 +1,13 @@
+{
+  "formatVersion": 1,
+  "id": "moonlit-shrine",
+  "title": "The Moonlit Shrine",
+  "description": "Sample fixture: a traveler crosses a meadow at dusk and discovers a small shrine.",
+  "renderStyle": {
+    "style": "toon",
+    "background": "#1a1a2e"
+  },
+  "settings": {
+    "maxPixelRatio": 2
+  }
+}

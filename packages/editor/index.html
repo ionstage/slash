@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Slash Editor</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header id="topbar">
+        <span class="logo">Slash</span>
+        <span class="project-title">No project open</span>
+      </header>
+      <aside id="hierarchy" class="panel">
+        <h2>Hierarchy</h2>
+        <p class="placeholder">Open a project to see scenes and actors.</p>
+      </aside>
+      <main id="viewport"></main>
+      <aside id="inspector" class="panel">
+        <h2>Inspector</h2>
+        <p class="placeholder">Select an object to edit it.</p>
+      </aside>
+      <footer id="timeline" class="panel">
+        <h2>Progress</h2>
+        <input type="range" id="progress-scrubber" min="0" max="1" step="0.001" value="0" disabled />
+      </footer>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

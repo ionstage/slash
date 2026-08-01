@@ -1,0 +1,62 @@
+{
+  "$id": "slash/asset-index",
+  "title": "Slash asset registry (assets/index.json)",
+  "description": "Every asset the project can reference. Scenes refer to assets only by id, so assets are shared across scenes and deduplicated at export.",
+  "type": "object",
+  "required": ["formatVersion", "assets"],
+  "additionalProperties": false,
+  "properties": {
+    "formatVersion": { "const": 1 },
+    "assets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "kind"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "description": "Stable asset id, unique in the project."
+          },
+          "name": { "type": "string", "description": "Display name shown in the editor." },
+          "type": {
+            "enum": ["character", "stage", "prop", "environment"],
+            "description": "Story role of the asset."
+          },
+          "kind": {
+            "enum": ["gltf", "primitive"],
+            "description": "gltf = model file under assets/models/. primitive = generated placeholder geometry, useful for fixtures and blocking out scenes before real models exist."
+          },
+          "source": {
+            "type": "string",
+            "pattern": "^models/.+\\.(glb|gltf)$",
+            "description": "Path relative to assets/, required when kind is gltf."
+          },
+          "primitive": {
+            "type": "object",
+            "required": ["shape"],
+            "additionalProperties": false,
+            "description": "Required when kind is primitive.",
+            "properties": {
+              "shape": { "enum": ["box", "sphere", "capsule", "plane", "cylinder"] },
+              "size": {
+                "type": "array",
+                "items": { "type": "number", "exclusiveMinimum": 0 },
+                "minItems": 3,
+                "maxItems": 3,
+                "description": "Width/height/depth in meters. Default [1,1,1]."
+              },
+              "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" }
+            }
+          },
+          "tags": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Free-form tags for search and AI-assisted asset selection."
+          }
+        }
+      }
+    }
+  }
+}

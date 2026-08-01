@@ -1,0 +1,19 @@
+{
+  "formatVersion": 1,
+  "flags": {
+    "noticedTree": {
+      "initial": false,
+      "description": "The traveler tapped the old tree in the meadow."
+    },
+    "rangBell": {
+      "initial": false,
+      "description": "The traveler rang the shrine bell."
+    }
+  },
+  "counters": {
+    "blessings": {
+      "initial": 0,
+      "description": "How many blessings the traveler has received."
+    }
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "formatVersion": 1,
+  "id": "meadow",
+  "name": "Dusk Meadow",
+  "scrollLength": 4,
+  "stage": {
+    "assetId": "meadow-stage"
+  },
+  "actors": [
+    {
+      "id": "traveler",
+      "assetId": "traveler",
+      "transform": { "position": [0, 0, 0], "rotation": [0, 180, 0] },
+      "tracks": {
+        "position": [
+          { "t": 0, "value": [0, 0, 0] },
+          { "t": 0.8, "value": [0, 0, -14], "easing": "easeInOut" },
+          { "t": 1, "value": [0, 0, -16], "easing": "easeOut" }
+        ]
+      }
+    },
+    {
+      "id": "old-tree",
+      "assetId": "tree",
+      "transform": { "position": [-3, 0, -10], "scale": 1.5 }
+    }
+  ],
+  "camera": {
+    "fov": 50,
+    "tracks": {
+      "position": [
+        { "t": 0, "value": [0, 1.6, 5] },
+        { "t": 0.5, "value": [2.5, 2.2, -6], "easing": "easeInOut" },
+        { "t": 1, "value": [0.5, 1.8, -12], "easing": "easeOut" }
+      ],
+      "lookAt": [
+        { "t": 0, "value": [0, 1.2, 0] },
+        { "t": 0.5, "value": [0, 1.2, -8], "easing": "easeInOut" },
+        { "t": 1, "value": [0, 1.4, -16] }
+      ],
+      "fov": [
+        { "t": 0, "value": 50 },
+        { "t": 1, "value": 42, "easing": "easeInOut" }
+      ]
+    }
+  },
+  "events": [
+    {
+      "id": "notice-tree",
+      "trigger": { "type": "tap", "target": "old-tree" },
+      "actions": [
+        { "type": "setState", "key": "noticedTree", "value": true },
+        { "type": "log", "message": "The old tree seems to whisper something." }
+      ]
+    },
+    {
+      "id": "halfway",
+      "trigger": { "type": "progress", "at": 0.5 },
+      "actions": [{ "type": "log", "message": "The meadow darkens as dusk settles." }]
+    }
+  ]
+}

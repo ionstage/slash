@@ -1,0 +1,57 @@
+{
+  "formatVersion": 1,
+  "id": "shrine",
+  "name": "The Moonlit Shrine",
+  "scrollLength": 3,
+  "stage": {
+    "assetId": "shrine-stage"
+  },
+  "actors": [
+    {
+      "id": "traveler",
+      "assetId": "traveler",
+      "transform": { "position": [0, 0, 4], "rotation": [0, 180, 0] },
+      "tracks": {
+        "position": [
+          { "t": 0, "value": [0, 0, 4] },
+          { "t": 0.7, "value": [0, 0, 0.5], "easing": "easeInOut" }
+        ]
+      }
+    },
+    {
+      "id": "shrine-bell",
+      "assetId": "bell",
+      "transform": { "position": [0, 2.2, -1] }
+    }
+  ],
+  "camera": {
+    "fov": 45,
+    "tracks": {
+      "position": [
+        { "t": 0, "value": [0, 1.8, 8] },
+        { "t": 0.6, "value": [-2, 1.5, 2], "easing": "easeInOut" },
+        { "t": 1, "value": [0, 2.5, 3], "easing": "easeInOut" }
+      ],
+      "lookAt": [
+        { "t": 0, "value": [0, 1.5, 0] },
+        { "t": 1, "value": [0, 2, -1], "easing": "easeInOut" }
+      ]
+    }
+  },
+  "events": [
+    {
+      "id": "ring-bell",
+      "trigger": { "type": "tap", "target": "shrine-bell" },
+      "actions": [
+        { "type": "setState", "key": "rangBell", "value": true },
+        { "type": "setState", "key": "blessings", "value": 1 },
+        { "type": "log", "message": "The bell rings across the silent shrine." }
+      ]
+    },
+    {
+      "id": "arrival",
+      "trigger": { "type": "progress", "at": 0.1 },
+      "actions": [{ "type": "log", "message": "A small shrine appears in the moonlight." }]
+    }
+  ]
+}

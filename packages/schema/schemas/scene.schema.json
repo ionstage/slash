@@ -1,0 +1,218 @@
+{
+  "$id": "slash/scene",
+  "title": "Slash scene (scenes/*.json)",
+  "description": "One scene: a stage, actors placed on it, camera direction, animation tracks and events, all driven by the scene's progress axis t in [0,1].",
+  "type": "object",
+  "required": ["formatVersion", "id", "stage", "camera"],
+  "additionalProperties": false,
+  "properties": {
+    "formatVersion": { "const": 1 },
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+    "name": { "type": "string", "description": "Display name shown in the editor." },
+    "scrollLength": {
+      "type": "number",
+      "minimum": 0.5,
+      "maximum": 20,
+      "description": "How much scrolling this scene spans, in viewport heights. Controls pacing; default 3."
+    },
+    "stage": {
+      "type": "object",
+      "required": ["assetId"],
+      "additionalProperties": false,
+      "description": "The environment the scene plays in.",
+      "properties": {
+        "assetId": { "type": "string", "description": "Asset id from assets/index.json (type: stage)." },
+        "transform": { "$ref": "#/$defs/transform" }
+      }
+    },
+    "actors": {
+      "type": "array",
+      "description": "Characters and props placed in the scene.",
+      "items": {
+        "type": "object",
+        "required": ["id", "assetId"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "description": "Scene-local actor id, referenced by tracks and events."
+          },
+          "assetId": { "type": "string" },
+          "transform": { "$ref": "#/$defs/transform" },
+          "idleClip": {
+            "type": "string",
+            "description": "Name of a glTF animation clip to loop while the actor is idle."
+          },
+          "tracks": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Progress-driven animation of the actor's transform.",
+            "properties": {
+              "position": { "$ref": "#/$defs/vec3Track" },
+              "rotation": { "$ref": "#/$defs/vec3Track" },
+              "scale": { "$ref": "#/$defs/vec3Track" }
+            }
+          }
+        }
+      }
+    },
+    "camera": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tracks"],
+      "description": "Camera direction over the progress axis.",
+      "properties": {
+        "fov": { "type": "number", "minimum": 10, "maximum": 120, "description": "Base vertical FOV in degrees. Default 50." },
+        "tracks": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["position", "lookAt"],
+          "properties": {
+            "position": { "$ref": "#/$defs/vec3Track" },
+            "lookAt": { "$ref": "#/$defs/vec3Track" },
+            "fov": { "$ref": "#/$defs/numberTrack" }
+          }
+        }
+      }
+    },
+    "events": {
+      "type": "array",
+      "description": "Data-driven events: a trigger fires its actions.",
+      "items": {
+        "type": "object",
+        "required": ["id", "trigger", "actions"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+          "once": {
+            "type": "boolean",
+            "description": "If true (default), the event fires only the first time its trigger matches."
+          },
+          "trigger": {
+            "oneOf": [
+              {
+                "type": "object",
+                "required": ["type", "at"],
+                "additionalProperties": false,
+                "properties": {
+                  "type": { "const": "progress" },
+                  "at": { "type": "number", "minimum": 0, "maximum": 1, "description": "Fires when scene progress crosses this value." }
+                }
+              },
+              {
+                "type": "object",
+                "required": ["type"],
+                "additionalProperties": false,
+                "properties": {
+                  "type": { "const": "tap" },
+                  "target": { "type": "string", "description": "Actor id that must be tapped. Omitted = tap anywhere." }
+                }
+              }
+            ]
+          },
+          "actions": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "required": ["type", "target", "clip"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "type": { "const": "playAnimation" },
+                    "target": { "type": "string", "description": "Actor id." },
+                    "clip": { "type": "string", "description": "glTF animation clip name." },
+                    "loop": { "type": "boolean", "description": "Loop the clip instead of playing once." }
+                  }
+                },
+                {
+                  "type": "object",
+                  "required": ["type", "key", "value"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "type": { "const": "setState" },
+                    "key": { "type": "string", "description": "Flag or counter name from state.json." },
+                    "value": { "type": ["boolean", "number", "string"] }
+                  }
+                },
+                {
+                  "type": "object",
+                  "required": ["type", "scene"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "type": { "const": "gotoScene" },
+                    "scene": { "type": "string", "description": "Scene id to jump to." }
+                  }
+                },
+                {
+                  "type": "object",
+                  "required": ["type", "message"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "type": { "const": "log" },
+                    "message": { "type": "string", "description": "Debug action: logs to the console." }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "transform": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Position in meters, rotation as XYZ euler degrees, uniform or per-axis scale.",
+      "properties": {
+        "position": { "$ref": "#/$defs/vec3" },
+        "rotation": { "$ref": "#/$defs/vec3" },
+        "scale": {
+          "oneOf": [{ "type": "number", "exclusiveMinimum": 0 }, { "$ref": "#/$defs/vec3" }]
+        }
+      }
+    },
+    "vec3": {
+      "type": "array",
+      "items": { "type": "number" },
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "easing": {
+      "enum": ["linear", "easeIn", "easeOut", "easeInOut", "step"],
+      "description": "Interpolation from the previous keyframe to this one. Default linear."
+    },
+    "vec3Track": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Keyframes over scene progress t in [0,1], sorted by t.",
+      "items": {
+        "type": "object",
+        "required": ["t", "value"],
+        "additionalProperties": false,
+        "properties": {
+          "t": { "type": "number", "minimum": 0, "maximum": 1 },
+          "value": { "$ref": "#/$defs/vec3" },
+          "easing": { "$ref": "#/$defs/easing" }
+        }
+      }
+    },
+    "numberTrack": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["t", "value"],
+        "additionalProperties": false,
+        "properties": {
+          "t": { "type": "number", "minimum": 0, "maximum": 1 },
+          "value": { "type": "number" },
+          "easing": { "$ref": "#/$defs/easing" }
+        }
+      }
+    }
+  }
+}

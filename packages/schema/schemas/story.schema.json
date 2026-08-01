@@ -29,9 +29,51 @@
           },
           "next": {
             "type": ["string", "null"],
-            "description": "Scene id that follows when progress passes the end of this scene. null or omitted = story ends here."
+            "description": "Scene id that follows when progress passes the end of this scene. null or omitted = story ends here. Evaluated after `branches`."
+          },
+          "branches": {
+            "type": "array",
+            "description": "State-dependent outcomes: the first branch whose condition matches decides the next scene, otherwise `next` applies.",
+            "items": {
+              "type": "object",
+              "required": ["when", "next"],
+              "additionalProperties": false,
+              "properties": {
+                "when": { "$ref": "#/$defs/condition" },
+                "next": { "type": "string", "description": "Scene id to continue with." }
+              }
+            }
+          },
+          "viewpoints": {
+            "type": "array",
+            "description": "Horizontal variants of this story span (alternative character perspectives). Swiping switches between the base scene and these; vertical progress is shared.",
+            "items": {
+              "type": "object",
+              "required": ["id", "path"],
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9-]*$",
+                  "description": "Scene id of the variant, unique within the story."
+                },
+                "path": { "type": "string", "pattern": "^scenes/[a-z][a-z0-9-]*\\.json$" }
+              }
+            }
           }
         }
+      }
+    }
+  },
+  "$defs": {
+    "condition": {
+      "type": "object",
+      "required": ["key", "equals"],
+      "additionalProperties": false,
+      "description": "State condition: true when the flag/counter `key` currently equals `equals`.",
+      "properties": {
+        "key": { "type": "string" },
+        "equals": { "type": ["boolean", "number", "string"] }
       }
     }
   }

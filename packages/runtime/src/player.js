@@ -4,49 +4,106 @@ import { createAssetLibrary } from './assets.js';
 import { createScenePlayer } from './scene-player.js';
 import { createScrollDriver } from './scroll.js';
 import { createStateStore } from './state.js';
+import { createAudioSystem } from './audio.js';
+import { resolveNext } from './conditions.js';
 
 const DEFAULT_SCROLL_LENGTH = 3;
+const DEFAULT_AUTO_SPEED = 0.35; // viewport-heights per second
+const FRONTIER_MARGIN = 0.75; // units before the path end where the next scene is resolved
 
 /**
- * The story player: owns the viewer, the scroll driver, story state and all
- * scene players, and maps the global scroll position onto per-scene
- * progress. This is Interactive Mode; Playback Mode (M3) will reuse it with
- * an auto-play driver instead of the scroll driver.
+ * The story player. The story unfolds along a dynamic *path* of story
+ * nodes: it starts at the story's start scene and extends lazily — when
+ * progress reaches the end of the path, the next node is resolved from
+ * `branches`/`next` against current state. Scrolling back revisits the
+ * path already taken; `gotoScene` jumps within it or reroutes it.
+ *
+ * Each node can carry viewpoint variants; horizontal swipes (or arrow
+ * keys) switch the active variant without touching vertical progress.
+ * Interactive Mode (scroll) and Playback Mode (auto-play) drive the same
+ * progress value.
  *
  * @param {HTMLElement} container
  * @param {Awaited<ReturnType<import('./loader.js').loadProject>>} bundle
+ * @param {{ persist?: boolean }} [options] persist=false keeps state
+ *   in-memory only (editor preview).
  */
-export async function createPlayer(container, bundle) {
+export async function createPlayer(container, bundle, { persist = true } = {}) {
   const viewer = createViewer(container, {
     background: bundle.project.renderStyle?.background,
     maxPixelRatio: bundle.project.settings?.maxPixelRatio,
   });
-  const state = createStateStore(bundle.state);
+  const state = createStateStore(bundle.state, {
+    storageKey: persist ? `slash:${bundle.project.id}` : undefined,
+  });
   const resolveAsset = bundle.resolveAsset ?? ((source) => `${bundle.baseUrl}assets/${source}`);
   const assets = createAssetLibrary(bundle.assetIndex, resolveAsset);
+  const audio = createAudioSystem(bundle.assetIndex, resolveAsset);
+  const autoSpeed = bundle.project.settings?.autoScrollSpeed ?? DEFAULT_AUTO_SPEED;
 
-  // Linear scene chain: follow `next` links from the story's start scene.
-  // Guards against cycles; branching replaces this in M3.
-  const order = [];
-  const storyEntries = new Map(bundle.story.scenes.map((s) => [s.id, s]));
-  const seen = new Set();
-  for (let id = bundle.story.start; id && storyEntries.has(id) && !seen.has(id); ) {
-    seen.add(id);
+  const storyNodes = new Map(bundle.story.scenes.map((s) => [s.id, s]));
+  const scenePlayers = new Map(); // scene doc id → scenePlayer (shared across path revisits)
+
+  async function playerFor(sceneId) {
+    if (!scenePlayers.has(sceneId)) {
+      scenePlayers.set(
+        sceneId,
+        await createScenePlayer(bundle.scenes[sceneId], { assets, getState: state.get }),
+      );
+    }
+    return scenePlayers.get(sceneId);
+  }
+
+  /**
+   * @typedef {{ node: any, length: number, start: number, vpIndex: number, ready: boolean }} PathEntry
+   * The scene doc id of an entry's active variant: variantId(entry).
+   */
+  /** @type {PathEntry[]} */
+  const path = [];
+  let building = false;
+
+  function variantIds(entry) {
+    return [entry.node.id, ...(entry.node.viewpoints ?? []).map((v) => v.id)];
+  }
+  function variantId(entry) {
+    return variantIds(entry)[entry.vpIndex] ?? entry.node.id;
+  }
+  function pathEnd() {
+    const last = path.at(-1);
+    return last ? last.start + last.length : 0;
+  }
+  function builtEnd() {
+    let end = 0;
+    for (const entry of path) {
+      if (!entry.ready) break;
+      end = entry.start + entry.length;
+    }
+    return end;
+  }
+
+  async function appendNode(id) {
+    const node = storyNodes.get(id);
+    if (!node) return console.warn(`[slash] unknown story node "${id}"`);
     const doc = bundle.scenes[id];
-    const length = doc.scrollLength ?? DEFAULT_SCROLL_LENGTH;
-    const start = order.length ? order[order.length - 1].start + order[order.length - 1].length : 0;
-    order.push({ id, doc, length, start });
-    id = storyEntries.get(id).next;
+    const entry = {
+      node,
+      length: doc.scrollLength ?? DEFAULT_SCROLL_LENGTH,
+      start: pathEnd(),
+      vpIndex: 0,
+      ready: false,
+    };
+    path.push(entry);
+    building = true;
+    await playerFor(id);
+    entry.ready = true;
+    building = false;
   }
-  const totalUnits = order.reduce((sum, e) => sum + e.length, 0);
+  await appendNode(bundle.story.start);
 
-  // M1 assembles every scene upfront; lazy loading is an M5 concern.
-  const scenePlayers = new Map();
-  for (const entry of order) {
-    scenePlayers.set(entry.id, await createScenePlayer(entry.doc, { assets }));
-  }
-
-  const driver = createScrollDriver(container, { totalUnits });
+  const driver = createScrollDriver(container, {
+    getTotalUnits: () => pathEnd(),
+    onSwipe: (direction) => switchViewpoint(direction),
+  });
 
   function runEvent(scene, event) {
     for (const action of event.actions) {
@@ -60,6 +117,14 @@ export async function createPlayer(container, bundle) {
         case 'gotoScene':
           jumpToScene(action.scene);
           break;
+        case 'playSound':
+          audio.playSfx(action.asset, { loop: action.loop });
+          break;
+        case 'setVisible': {
+          const actor = scene.actors.get(action.target);
+          if (actor) actor.object.visible = action.visible;
+          break;
+        }
         case 'playAnimation': {
           const actor = scene.actors.get(action.target);
           const clip = actor && THREE.AnimationClip.findByName(actor.clips, action.clip);
@@ -79,35 +144,100 @@ export async function createPlayer(container, bundle) {
   }
 
   let active = null;
+  let activeEntry = null;
+  let autoPlay = false;
   const ctx = { run: (event) => runEvent(active, event) };
   const progressListeners = new Set();
 
   function entryAt(units) {
-    for (const entry of order) {
+    for (const entry of path) {
       if (units < entry.start + entry.length) return entry;
     }
-    return order[order.length - 1];
+    return path.at(-1);
   }
 
   function jumpToScene(id) {
-    const entry = order.find((e) => e.id === id);
-    if (entry) driver.jumpTo(entry.start);
-    else console.warn(`[slash] gotoScene: unknown scene "${id}"`);
+    const existing = path.find((e) => e.node.id === id);
+    if (existing) return driver.jumpTo(existing.start);
+    if (!storyNodes.has(id)) return console.warn(`[slash] gotoScene: unknown scene "${id}"`);
+    // Reroute: drop path beyond the current node, then continue at `id`.
+    const cut = path.indexOf(activeEntry);
+    if (cut >= 0) path.length = cut + 1;
+    appendNode(id).then(() => driver.jumpTo(path.at(-1).start));
+  }
+
+  async function switchViewpoint(direction) {
+    const entry = activeEntry;
+    if (!entry) return;
+    const ids = variantIds(entry);
+    const next = entry.vpIndex + direction;
+    if (next < 0 || next >= ids.length) return;
+    entry.vpIndex = next;
+    await playerFor(ids[next]); // build variant on first visit
+    notifyViewpoint();
+  }
+
+  const viewpointListeners = new Set();
+  function notifyViewpoint() {
+    const entry = activeEntry;
+    const payload = entry
+      ? { index: entry.vpIndex, count: variantIds(entry).length }
+      : { index: 0, count: 1 };
+    for (const cb of viewpointListeners) cb(payload);
+  }
+
+  function applyAudio(doc) {
+    audio.setBgm(doc.audio?.bgm ?? null);
+    audio.setAmbient(doc.audio?.ambient ?? null);
   }
 
   viewer.onTick((dt) => {
-    const units = driver.update(dt);
+    if (autoPlay) driver.advance(autoSpeed * dt);
+    let units = driver.update(dt);
+
+    // Extend the path when progress nears the frontier and a next node
+    // resolves. The margin both defeats the damped scroll's asymptote
+    // (it never *exactly* reaches the end) and preloads the next scene.
+    // Note: a branch is committed once appended; state changes within the
+    // final margin of a scene no longer affect which branch was taken.
+    const last = path.at(-1);
+    if (!building && last?.ready && units >= pathEnd() - FRONTIER_MARGIN) {
+      const nextId = resolveNext(last.node, state.get);
+      if (nextId) appendNode(nextId);
+    }
+    // Never advance into a node whose scene is still loading.
+    const limit = builtEnd();
+    if (units > limit) {
+      driver.jumpTo(limit);
+      units = limit;
+    }
+
     const entry = entryAt(units);
-    const scenePlayer = scenePlayers.get(entry.id);
+    if (!entry?.ready) return;
+    const scenePlayer = scenePlayers.get(variantId(entry));
+    if (!scenePlayer) return;
     if (scenePlayer !== active) {
       if (active) viewer.scene.remove(active.group);
       viewer.scene.add(scenePlayer.group);
       active = scenePlayer;
+      activeEntry = entry;
+      applyAudio(scenePlayer.doc);
+      notifyViewpoint();
     }
+    activeEntry = entry;
     const t = Math.min(1, Math.max(0, (units - entry.start) / entry.length));
     active.update(t, dt, viewer.camera, ctx);
-    for (const cb of progressListeners) cb({ units, totalUnits, scene: entry.doc, t });
+    for (const cb of progressListeners) {
+      cb({ units, totalUnits: pathEnd(), scene: active.doc, t, autoPlay });
+    }
   });
+
+  // Keyboard: viewpoint switching (mirrors horizontal swipe).
+  function onKey(e) {
+    if (e.key === 'ArrowRight') switchViewpoint(1);
+    if (e.key === 'ArrowLeft') switchViewpoint(-1);
+  }
+  window.addEventListener('keydown', onKey);
 
   // Tap: pointer up close to pointer down = tap; raycast into the active scene.
   const raycaster = new THREE.Raycaster();
@@ -128,22 +258,48 @@ export async function createPlayer(container, bundle) {
       -((e.clientY - rect.top) / rect.height) * 2 + 1,
     );
     raycaster.setFromCamera(pointer, viewer.camera);
-    const hit = raycaster.intersectObjects(active.group.children, true)[0];
+    const hit = raycaster
+      .intersectObjects(active.group.children, true)
+      .find((h) => h.object.visible);
     active.handleTap(hit ? findActorId(hit.object) : null, ctx);
   });
 
   return {
     viewer,
     state,
-    totalUnits,
     /** Subscribe to per-frame progress; returns an unsubscribe function. */
     onProgress(cb) {
       progressListeners.add(cb);
       return () => progressListeners.delete(cb);
     },
+    /** Subscribe to viewpoint changes ({index, count}). */
+    onViewpoint(cb) {
+      viewpointListeners.add(cb);
+      cb({ index: activeEntry?.vpIndex ?? 0, count: activeEntry ? variantIds(activeEntry).length : 1 });
+      return () => viewpointListeners.delete(cb);
+    },
     jumpToScene,
+    switchViewpoint,
+    /** Playback Mode: automatic progression sharing the same progress. */
+    setAutoPlay(on) {
+      autoPlay = on;
+    },
+    get autoPlay() {
+      return autoPlay;
+    },
+    /** Restart the story: clear state (and its persistence) and rewind. */
+    reset() {
+      state.reset();
+      path.length = 1;
+      if (path[0]) path[0].vpIndex = 0;
+      autoPlay = false;
+      driver.jumpTo(0);
+      notifyViewpoint();
+    },
     dispose() {
+      window.removeEventListener('keydown', onKey);
       driver.dispose();
+      audio.dispose();
       viewer.dispose();
     },
   };

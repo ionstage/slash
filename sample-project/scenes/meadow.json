@@ -6,6 +6,7 @@
   "stage": {
     "assetId": "meadow-stage"
   },
+  "audio": { "ambient": "wind" },
   "actors": [
     {
       "id": "traveler",

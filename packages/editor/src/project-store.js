@@ -88,12 +88,50 @@ export function createProjectStore() {
       story.scenes.splice(idx, 1);
       for (const entry of story.scenes) {
         if (entry.next === id) entry.next = removed.next === id ? null : removed.next;
+        entry.branches = entry.branches?.filter((b) => b.next !== id);
+        if (entry.branches?.length === 0) delete entry.branches;
       }
       if (story.start === id) story.start = story.scenes[0].id;
       delete scenes[id];
-      if (this.activeSceneId === id) this.activeSceneId = story.start;
+      for (const vp of removed.viewpoints ?? []) delete scenes[vp.id];
+      if (!(this.activeSceneId in scenes)) this.activeSceneId = story.start;
       this.selection = null;
       this.touch('project');
+    },
+
+    /** Add a horizontal viewpoint variant to a story node, seeded from its base scene. */
+    addViewpoint(nodeId) {
+      const { story, scenes } = this.docs;
+      const node = story.scenes.find((s) => s.id === nodeId);
+      if (!node) return;
+      const taken = new Set(Object.keys(scenes));
+      const id = uniqueId(`${nodeId}-view`, taken);
+      const copy = JSON.parse(JSON.stringify(scenes[nodeId]));
+      copy.id = id;
+      copy.name = `${scenes[nodeId].name ?? nodeId} (viewpoint)`;
+      scenes[id] = copy;
+      (node.viewpoints ??= []).push({ id, path: `scenes/${id}.json` });
+      this.touch('project');
+      this.setActiveScene(id);
+    },
+
+    removeViewpoint(nodeId, vpId) {
+      const { story, scenes } = this.docs;
+      const node = story.scenes.find((s) => s.id === nodeId);
+      if (!node) return;
+      node.viewpoints = (node.viewpoints ?? []).filter((v) => v.id !== vpId);
+      if (node.viewpoints.length === 0) delete node.viewpoints;
+      delete scenes[vpId];
+      if (this.activeSceneId === vpId) this.activeSceneId = nodeId;
+      this.selection = null;
+      this.touch('project');
+    },
+
+    stateKeys() {
+      return [
+        ...Object.keys(this.docs.state.flags ?? {}),
+        ...Object.keys(this.docs.state.counters ?? {}),
+      ];
     },
 
     addActor(assetId) {

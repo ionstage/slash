@@ -1,0 +1,85 @@
+/**
+ * Default player HUD, shared by the demo page, the editor preview and
+ * exported stories: progress bar, scene label, scroll hint, play/pause
+ * (Playback Mode), restart, and a viewpoint indicator when the current
+ * story span has variants. Injects its own DOM and styles into `root`.
+ *
+ * @param {ReturnType<import('./player.js').createPlayer> extends Promise<infer P> ? P : never} player
+ * @param {HTMLElement} [root]
+ */
+export function attachHud(player, root = document.body) {
+  const style = document.createElement('style');
+  style.textContent = `
+    .slash-hud { position: fixed; inset: 0; pointer-events: none;
+      font: 13px/1.5 system-ui, sans-serif; color: rgba(255,255,255,0.75); }
+    .slash-hud * { box-sizing: border-box; }
+    .slash-progress { position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: rgba(255,255,255,0.12); }
+    .slash-progress-fill { width: 0; height: 100%; background: #e8b04b; }
+    .slash-label { position: absolute; left: 16px; bottom: 14px; letter-spacing: 0.06em;
+      white-space: pre-wrap; }
+    .slash-hint { position: absolute; left: 0; right: 0; bottom: 44px; text-align: center;
+      color: rgba(255,255,255,0.55); transition: opacity 0.6s; }
+    .slash-controls { position: absolute; right: 12px; bottom: 10px; display: flex; gap: 6px;
+      pointer-events: auto; }
+    .slash-controls button { background: rgba(30,30,42,0.8); color: rgba(255,255,255,0.85);
+      border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; padding: 4px 10px;
+      font: inherit; cursor: pointer; }
+    .slash-controls button:hover { border-color: #e8b04b; }
+    .slash-viewpoint { position: absolute; top: 12px; right: 12px; display: none; gap: 4px;
+      align-items: center; color: rgba(255,255,255,0.7); }
+    .slash-viewpoint .dot { width: 7px; height: 7px; border-radius: 50%;
+      background: rgba(255,255,255,0.3); }
+    .slash-viewpoint .dot.on { background: #e8b04b; }
+  `;
+
+  const hud = document.createElement('div');
+  hud.className = 'slash-hud';
+  hud.innerHTML = `
+    <div class="slash-progress"><div class="slash-progress-fill"></div></div>
+    <span class="slash-label"></span>
+    <div class="slash-hint">Scroll ↓</div>
+    <div class="slash-viewpoint"></div>
+    <div class="slash-controls">
+      <button class="slash-play" title="Playback Mode">▶</button>
+      <button class="slash-reset" title="Restart story">↺</button>
+    </div>
+  `;
+  root.append(style, hud);
+
+  const fill = hud.querySelector('.slash-progress-fill');
+  const label = hud.querySelector('.slash-label');
+  const hint = hud.querySelector('.slash-hint');
+  const playBtn = hud.querySelector('.slash-play');
+  const viewpointEl = hud.querySelector('.slash-viewpoint');
+
+  player.onProgress(({ units, totalUnits, scene, autoPlay }) => {
+    fill.style.width = `${(units / Math.max(totalUnits, 1e-6)) * 100}%`;
+    label.textContent = scene.name ?? scene.id;
+    hint.style.opacity = units > 0.2 ? '0' : '1';
+    playBtn.textContent = autoPlay ? '⏸' : '▶';
+  });
+
+  player.onViewpoint(({ index, count }) => {
+    viewpointEl.style.display = count > 1 ? 'flex' : 'none';
+    viewpointEl.replaceChildren(
+      ...Array.from({ length: count }, (_, i) => {
+        const dot = document.createElement('span');
+        dot.className = 'dot' + (i === index ? ' on' : '');
+        return dot;
+      }),
+    );
+  });
+
+  playBtn.addEventListener('click', () => player.setAutoPlay(!player.autoPlay));
+  hud.querySelector('.slash-reset').addEventListener('click', () => player.reset());
+
+  return {
+    /** Also expose the label for error reporting by boot code. */
+    label,
+    dispose() {
+      hud.remove();
+      style.remove();
+    },
+  };
+}

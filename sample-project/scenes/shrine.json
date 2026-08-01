@@ -22,6 +22,12 @@
       "id": "shrine-bell",
       "assetId": "bell",
       "transform": { "position": [0, 2.2, -1] }
+    },
+    {
+      "id": "spirit",
+      "assetId": "spirit",
+      "transform": { "position": [1.5, 1.5, -2] },
+      "visibleWhen": { "key": "rangBell", "equals": true }
     }
   ],
   "camera": {
@@ -43,6 +49,7 @@
       "id": "ring-bell",
       "trigger": { "type": "tap", "target": "shrine-bell" },
       "actions": [
+        { "type": "playSound", "asset": "chime" },
         { "type": "setState", "key": "rangBell", "value": true },
         { "type": "setState", "key": "blessings", "value": 1 },
         { "type": "log", "message": "The bell rings across the silent shrine." }
@@ -52,6 +59,11 @@
       "id": "arrival",
       "trigger": { "type": "progress", "at": 0.1 },
       "actions": [{ "type": "log", "message": "A small shrine appears in the moonlight." }]
+    },
+    {
+      "id": "spirit-wakes",
+      "trigger": { "type": "state", "key": "rangBell", "equals": true },
+      "actions": [{ "type": "log", "message": "Something stirs beside the shrine..." }]
     }
   ]
 }

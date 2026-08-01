@@ -30,6 +30,16 @@ export function createInspector(container, store, viewport) {
       el('h2', {}, `Actor: ${actor.id}`),
       assetSelect(actor),
       transformFields(transform, touchScene),
+      el('h3', {}, 'Visible when'),
+      conditionEditor(
+        actor.visibleWhen,
+        (cond) => {
+          if (cond) actor.visibleWhen = cond;
+          else delete actor.visibleWhen;
+          touchScene();
+        },
+        'Always visible',
+      ),
       el('h3', {}, 'Position track'),
       el('div.row', {}, [
         el('button', {
@@ -76,6 +86,7 @@ export function createInspector(container, store, viewport) {
   }
 
   function renderScene(scene) {
+    const storyNode = store.docs.story.scenes.find((s) => s.id === scene.id);
     return el('div', {}, [
       el('h2', {}, `Scene: ${scene.id}`),
       textField('Name', scene.name ?? '', (v) => {
@@ -90,14 +101,150 @@ export function createInspector(container, store, viewport) {
         scene.camera.fov = v;
         touchScene();
       }),
+      el('h3', {}, 'Audio'),
+      audioSelect('BGM', scene, 'bgm'),
+      audioSelect('Ambient', scene, 'ambient'),
       el('h3', {}, 'Camera keys'),
       el('p.placeholder', {}, 'Set keys from the timeline bar below.'),
       keyList(scene.camera.tracks.position, touchScene, (i) => {
         // Keep position and lookAt keys paired when deleting.
         scene.camera.tracks.lookAt.splice(i, 1);
       }),
+      ...(storyNode ? renderBranching(storyNode) : []),
       el('h3', {}, 'Events'),
       ...renderEvents(scene),
+    ]);
+  }
+
+  function audioSelect(label, scene, key) {
+    const audioAssets = store.docs.assetIndex.assets.filter((a) => a.kind === 'audio');
+    return el('label.field', {}, [
+      label,
+      el(
+        'select',
+        {
+          onchange: (e) => {
+            if (e.target.value) (scene.audio ??= {})[key] = e.target.value;
+            else if (scene.audio) {
+              delete scene.audio[key];
+              if (Object.keys(scene.audio).length === 0) delete scene.audio;
+            }
+            touchScene();
+          },
+        },
+        [
+          el('option', { value: '', selected: !scene.audio?.[key] }, 'none'),
+          ...audioAssets.map((a) =>
+            el('option', { value: a.id, selected: scene.audio?.[key] === a.id }, a.name ?? a.id),
+          ),
+        ],
+      ),
+    ]);
+  }
+
+  // Branching lives on the story node (next + state-conditional branches).
+  function renderBranching(node) {
+    const sceneIds = store.docs.story.scenes.map((s) => s.id);
+    const touchStory = () => store.touch('project', { source: 'inspector' });
+    const nextSelect = (value, onChange, allowNull) =>
+      el(
+        'select',
+        { onchange: (e) => onChange(e.target.value || null) },
+        [
+          allowNull ? el('option', { value: '', selected: value == null }, 'end of story') : null,
+          ...sceneIds.map((id) => el('option', { value: id, selected: value === id }, id)),
+        ].filter(Boolean),
+      );
+    return [
+      el('h3', {}, 'Next scene'),
+      el('div.row', {}, [
+        nextSelect(node.next, (v) => {
+          node.next = v;
+          touchStory();
+        }, true),
+      ]),
+      el('h3', {}, 'Branches'),
+      ...(node.branches ?? []).map((branch, i) =>
+        el('div.event-card', {}, [
+          el('div.row', {}, [
+            el('span', {}, 'when'),
+            ...conditionInputs(branch.when, touchStory),
+            el('button.mini', {
+              textContent: '×',
+              onclick: () => {
+                node.branches.splice(i, 1);
+                if (node.branches.length === 0) delete node.branches;
+                touchStory();
+              },
+            }),
+          ]),
+          el('div.row', {}, [
+            el('span', {}, '→'),
+            nextSelect(branch.next, (v) => {
+              branch.next = v;
+              touchStory();
+            }, false),
+          ]),
+        ]),
+      ),
+      el('button.mini-wide', {
+        textContent: '+ branch',
+        onclick: () => {
+          const key = store.stateKeys()[0];
+          if (!key) return;
+          (node.branches ??= []).push({ when: { key, equals: true }, next: sceneIds[0] });
+          touchStory();
+        },
+      }),
+    ];
+  }
+
+  function conditionInputs(cond, onChange) {
+    return [
+      el(
+        'select',
+        {
+          onchange: (e) => {
+            cond.key = e.target.value;
+            onChange();
+          },
+        },
+        store.stateKeys().map((k) => el('option', { value: k, selected: cond.key === k }, k)),
+      ),
+      el('span', {}, '='),
+      el('input', {
+        value: JSON.stringify(cond.equals),
+        title: 'true / false / number / "text"',
+        style: 'width: 60px',
+        onchange: (e) => {
+          try {
+            cond.equals = JSON.parse(e.target.value);
+          } catch {
+            cond.equals = e.target.value;
+          }
+          onChange();
+        },
+      }),
+    ];
+  }
+
+  function conditionEditor(cond, apply, emptyLabel) {
+    if (!cond) {
+      return el('div.row', {}, [
+        el('span.placeholder.grow', {}, emptyLabel),
+        el('button.mini', {
+          textContent: '+',
+          title: 'Add condition',
+          onclick: () => {
+            const key = store.stateKeys()[0];
+            if (key) apply({ key, equals: true });
+          },
+        }),
+      ]);
+    }
+    return el('div.row', {}, [
+      ...conditionInputs(cond, () => apply(cond)),
+      el('button.mini', { textContent: '×', title: 'Remove condition', onclick: () => apply(null) }),
     ]);
   }
 
@@ -161,42 +308,20 @@ export function createInspector(container, store, viewport) {
             'select',
             {
               onchange: (e) => {
-                event.trigger =
-                  e.target.value === 'progress'
-                    ? { type: 'progress', at: 0.5 }
-                    : { type: 'tap' };
+                const defaults = {
+                  progress: { type: 'progress', at: 0.5 },
+                  tap: { type: 'tap' },
+                  state: { type: 'state', key: store.stateKeys()[0] ?? '', equals: true },
+                };
+                event.trigger = defaults[e.target.value];
                 touchScene();
               },
             },
-            ['progress', 'tap'].map((t) =>
+            ['progress', 'tap', 'state'].map((t) =>
               el('option', { value: t, selected: event.trigger.type === t }, `on ${t}`),
             ),
           ),
-          event.trigger.type === 'progress'
-            ? el('input', {
-                type: 'number', step: '0.05', min: '0', max: '1',
-                value: event.trigger.at,
-                onchange: (e) => {
-                  event.trigger.at = Number(e.target.value);
-                  touchScene();
-                },
-              })
-            : el(
-                'select',
-                {
-                  onchange: (e) => {
-                    if (e.target.value) event.trigger.target = e.target.value;
-                    else delete event.trigger.target;
-                    touchScene();
-                  },
-                },
-                [
-                  el('option', { value: '', selected: !event.trigger.target }, 'anywhere'),
-                  ...actorIds.map((id) =>
-                    el('option', { value: id, selected: event.trigger.target === id }, `on ${id}`),
-                  ),
-                ],
-              ),
+          ...triggerFields(event),
         ]),
         ...event.actions.map((action, j) => actionRow(event, action, j, actorIds, sceneIds)),
         el('button.mini-wide', {
@@ -225,18 +350,61 @@ export function createInspector(container, store, viewport) {
     ];
   }
 
+  function triggerFields(event) {
+    const scene = store.activeScene();
+    const actorIds = (scene.actors ?? []).map((a) => a.id);
+    if (event.trigger.type === 'progress') {
+      return [
+        el('input', {
+          type: 'number', step: '0.05', min: '0', max: '1',
+          value: event.trigger.at,
+          onchange: (e) => {
+            event.trigger.at = Number(e.target.value);
+            touchScene();
+          },
+        }),
+      ];
+    }
+    if (event.trigger.type === 'tap') {
+      return [
+        el(
+          'select',
+          {
+            onchange: (e) => {
+              if (e.target.value) event.trigger.target = e.target.value;
+              else delete event.trigger.target;
+              touchScene();
+            },
+          },
+          [
+            el('option', { value: '', selected: !event.trigger.target }, 'anywhere'),
+            ...actorIds.map((id) =>
+              el('option', { value: id, selected: event.trigger.target === id }, `on ${id}`),
+            ),
+          ],
+        ),
+      ];
+    }
+    return conditionInputs(event.trigger, touchScene); // state trigger: key/equals
+  }
+
   function actionRow(event, action, j, actorIds, sceneIds) {
+    const audioIds = store.docs.assetIndex.assets.filter((a) => a.kind === 'audio').map((a) => a.id);
     const defaults = {
       log: { type: 'log', message: 'Hello' },
       setState: { type: 'setState', key: '', value: true },
       gotoScene: { type: 'gotoScene', scene: sceneIds[0] },
       playAnimation: { type: 'playAnimation', target: actorIds[0] ?? '', clip: '' },
+      playSound: { type: 'playSound', asset: audioIds[0] ?? '' },
+      setVisible: { type: 'setVisible', target: actorIds[0] ?? '', visible: true },
     };
     const fields = {
       log: [textInput(action, 'message')],
       setState: [textInput(action, 'key'), jsonInput(action, 'value')],
       gotoScene: [idSelect(action, 'scene', sceneIds)],
       playAnimation: [idSelect(action, 'target', actorIds), textInput(action, 'clip')],
+      playSound: [idSelect(action, 'asset', audioIds), checkbox(action, 'loop')],
+      setVisible: [idSelect(action, 'target', actorIds), checkbox(action, 'visible')],
     };
     return el('div.row.action-row', {}, [
       el(
@@ -287,6 +455,20 @@ export function createInspector(container, store, viewport) {
         touchScene();
       },
     });
+  }
+
+  function checkbox(target, key) {
+    return el('label.check', {}, [
+      el('input', {
+        type: 'checkbox',
+        checked: Boolean(target[key]),
+        onchange: (e) => {
+          target[key] = e.target.checked;
+          touchScene();
+        },
+      }),
+      key,
+    ]);
   }
 
   function idSelect(target, key, ids) {

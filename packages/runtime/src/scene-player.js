@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { sampleTrack } from './tracks.js';
+import { evalCondition } from './conditions.js';
 
 const DEG = Math.PI / 180;
 
@@ -9,9 +10,13 @@ const DEG = Math.PI / 180;
  * event triggers. Action execution is delegated to the player via `ctx.run`.
  *
  * @param {any} sceneDoc Validated scene document.
- * @param {{ assets: ReturnType<import('./assets.js').createAssetLibrary> }} deps
+ * @param {{
+ *   assets: ReturnType<import('./assets.js').createAssetLibrary>,
+ *   getState?: (key: string) => unknown,
+ * }} deps getState powers `when` gates, state triggers and visibleWhen;
+ *   defaults to "no state" (all conditions with a key fail).
  */
-export async function createScenePlayer(sceneDoc, { assets }) {
+export async function createScenePlayer(sceneDoc, { assets, getState = () => undefined }) {
   const group = new THREE.Group();
   group.name = `scene:${sceneDoc.id}`;
 
@@ -38,10 +43,19 @@ export async function createScenePlayer(sceneDoc, { assets }) {
   let lastT = 0;
   const fired = new Set();
 
+  // `when` is checked before `once` is consumed: a gated event stays armed
+  // until its condition holds at trigger time.
   function shouldFire(event) {
+    if (event.when && !evalCondition(event.when, getState)) return false;
     if (event.once !== false && fired.has(event.id)) return false;
     fired.add(event.id);
     return true;
+  }
+
+  function applyVisibility() {
+    for (const { def, object } of actors.values()) {
+      if (def.visibleWhen) object.visible = evalCondition(def.visibleWhen, getState);
+    }
   }
 
   return {
@@ -75,9 +89,16 @@ export async function createScenePlayer(sceneDoc, { assets }) {
       camera.fov = cam.tracks.fov ? sampleTrack(cam.tracks.fov, t) : (cam.fov ?? 50);
       camera.updateProjectionMatrix();
 
+      applyVisibility();
+
       for (const event of sceneDoc.events ?? []) {
-        if (event.trigger.type !== 'progress') continue;
-        if (lastT < event.trigger.at && t >= event.trigger.at && shouldFire(event)) ctx.run(event);
+        if (event.trigger.type === 'progress') {
+          if (lastT < event.trigger.at && t >= event.trigger.at && shouldFire(event)) ctx.run(event);
+        } else if (event.trigger.type === 'state') {
+          // Level-triggered on the progress loop: fires once the state matches.
+          if (getState(event.trigger.key) === event.trigger.equals && shouldFire(event))
+            ctx.run(event);
+        }
       }
       lastT = t;
     },

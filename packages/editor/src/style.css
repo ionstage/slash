@@ -200,6 +200,10 @@ input[type='number'] {
   background: #33324a;
 }
 
+.row.indent {
+  margin-left: 16px;
+}
+
 .grow {
   flex: 1;
   overflow: hidden;

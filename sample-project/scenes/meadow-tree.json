@@ -1,0 +1,50 @@
+{
+  "formatVersion": 1,
+  "id": "meadow-tree",
+  "name": "Dusk Meadow — the Old Tree",
+  "scrollLength": 4,
+  "stage": {
+    "assetId": "meadow-stage"
+  },
+  "audio": { "ambient": "wind" },
+  "actors": [
+    {
+      "id": "traveler",
+      "assetId": "traveler",
+      "transform": { "position": [0, 0, 0], "rotation": [0, 180, 0] },
+      "tracks": {
+        "position": [
+          { "t": 0, "value": [0, 0, 0] },
+          { "t": 0.8, "value": [0, 0, -14], "easing": "easeInOut" },
+          { "t": 1, "value": [0, 0, -16], "easing": "easeOut" }
+        ]
+      }
+    },
+    {
+      "id": "old-tree",
+      "assetId": "tree",
+      "transform": { "position": [-3, 0, -10], "scale": 1.5 }
+    }
+  ],
+  "camera": {
+    "fov": 45,
+    "tracks": {
+      "position": [
+        { "t": 0, "value": [-6, 2.5, -4] },
+        { "t": 0.6, "value": [-5, 4, -7], "easing": "easeInOut" },
+        { "t": 1, "value": [-4.5, 6.5, -9.5], "easing": "easeInOut" }
+      ],
+      "lookAt": [
+        { "t": 0, "value": [-3, 3, -10] },
+        { "t": 1, "value": [-3, 6, -10], "easing": "easeInOut" }
+      ]
+    }
+  },
+  "events": [
+    {
+      "id": "tree-view",
+      "trigger": { "type": "progress", "at": 0.3 },
+      "actions": [{ "type": "log", "message": "Through the branches, the dusk sky glows." }]
+    }
+  ]
+}

@@ -38,6 +38,8 @@ createHierarchy(
     objectList: $('object-list'),
     assetList: $('asset-list'),
     dropZone: $('drop-zone'),
+    stateList: $('state-list'),
+    stateAdd: $('state-add'),
   },
   store,
   { toast },

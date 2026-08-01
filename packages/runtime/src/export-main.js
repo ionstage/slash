@@ -5,24 +5,15 @@
  */
 import { loadProject } from './loader.js';
 import { createPlayer } from './player.js';
+import { attachHud } from './hud.js';
 
 async function main() {
-  const app = document.getElementById('app');
   const bundle = await loadProject('./');
-  const player = await createPlayer(app, bundle);
-
-  const bar = document.getElementById('progress-fill');
-  const label = document.getElementById('scene-label');
-  const hint = document.getElementById('hint');
-  player.onProgress(({ units, totalUnits, scene }) => {
-    if (bar) bar.style.width = `${(units / totalUnits) * 100}%`;
-    if (label) label.textContent = scene.name ?? scene.id;
-    if (hint) hint.style.opacity = units > 0.2 ? '0' : '1';
-  });
+  const player = await createPlayer(document.getElementById('app'), bundle);
+  attachHud(player);
 }
 
 main().catch((err) => {
   console.error(err);
-  const label = document.getElementById('scene-label');
-  if (label) label.textContent = String(err.message ?? err);
+  document.body.insertAdjacentText('beforeend', String(err.message ?? err));
 });

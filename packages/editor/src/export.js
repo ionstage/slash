@@ -16,23 +16,13 @@ const INDEX_HTML = `<!doctype html>
     <title>__TITLE__</title>
     <style>
       html, body { margin: 0; height: 100%; overflow: hidden; background: #1a1a2e;
-        overscroll-behavior: none; font: 13px/1.5 system-ui, sans-serif; }
+        overscroll-behavior: none; font: 13px/1.5 system-ui, sans-serif; color: #d5d5e0; }
       #app { position: fixed; inset: 0; touch-action: none; }
       #app canvas { display: block; width: 100%; height: 100%; }
-      #progress { position: fixed; top: 0; left: 0; right: 0; height: 3px;
-        background: rgba(255,255,255,0.12); pointer-events: none; }
-      #progress-fill { width: 0; height: 100%; background: #e8b04b; }
-      #scene-label { position: fixed; left: 16px; bottom: 14px;
-        color: rgba(255,255,255,0.75); letter-spacing: 0.06em; pointer-events: none; }
-      #hint { position: fixed; left: 0; right: 0; bottom: 44px; text-align: center;
-        color: rgba(255,255,255,0.55); pointer-events: none; transition: opacity 0.6s; }
     </style>
   </head>
   <body>
     <div id="app"></div>
-    <div id="progress"><div id="progress-fill"></div></div>
-    <span id="scene-label"></span>
-    <div id="hint">Scroll &#8595;</div>
     <script type="module" src="./player.js"></script>
   </body>
 </html>

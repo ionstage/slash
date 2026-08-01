@@ -44,6 +44,10 @@
             "type": "string",
             "description": "Name of a glTF animation clip to loop while the actor is idle."
           },
+          "visibleWhen": {
+            "$ref": "#/$defs/condition",
+            "description": "Hidden element: the actor is only visible while this state condition holds (re-evaluated live)."
+          },
           "tracks": {
             "type": "object",
             "additionalProperties": false,
@@ -76,6 +80,15 @@
         }
       }
     },
+    "audio": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Scene soundtrack. Both crossfade on scene changes.",
+      "properties": {
+        "bgm": { "type": "string", "description": "Audio asset id, looped as background music." },
+        "ambient": { "type": "string", "description": "Audio asset id, looped as environment sound." }
+      }
+    },
     "events": {
       "type": "array",
       "description": "Data-driven events: a trigger fires its actions.",
@@ -88,6 +101,10 @@
           "once": {
             "type": "boolean",
             "description": "If true (default), the event fires only the first time its trigger matches."
+          },
+          "when": {
+            "$ref": "#/$defs/condition",
+            "description": "Extra gate: the trigger only fires while this state condition holds (checked without consuming `once`)."
           },
           "trigger": {
             "oneOf": [
@@ -107,6 +124,16 @@
                 "properties": {
                   "type": { "const": "tap" },
                   "target": { "type": "string", "description": "Actor id that must be tapped. Omitted = tap anywhere." }
+                }
+              },
+              {
+                "type": "object",
+                "required": ["type", "key", "equals"],
+                "additionalProperties": false,
+                "properties": {
+                  "type": { "const": "state" },
+                  "key": { "type": "string", "description": "Fires when this flag/counter becomes equal to `equals`." },
+                  "equals": { "type": ["boolean", "number", "string"] }
                 }
               }
             ]
@@ -154,6 +181,26 @@
                     "type": { "const": "log" },
                     "message": { "type": "string", "description": "Debug action: logs to the console." }
                   }
+                },
+                {
+                  "type": "object",
+                  "required": ["type", "asset"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "type": { "const": "playSound" },
+                    "asset": { "type": "string", "description": "Audio asset id to play as a sound effect." },
+                    "loop": { "type": "boolean" }
+                  }
+                },
+                {
+                  "type": "object",
+                  "required": ["type", "target", "visible"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "type": { "const": "setVisible" },
+                    "target": { "type": "string", "description": "Actor id to show or hide." },
+                    "visible": { "type": "boolean" }
+                  }
                 }
               ]
             }
@@ -163,6 +210,16 @@
     }
   },
   "$defs": {
+    "condition": {
+      "type": "object",
+      "required": ["key", "equals"],
+      "additionalProperties": false,
+      "description": "State condition: true when the flag/counter `key` currently equals `equals`.",
+      "properties": {
+        "key": { "type": "string" },
+        "equals": { "type": ["boolean", "number", "string"] }
+      }
+    },
     "transform": {
       "type": "object",
       "additionalProperties": false,

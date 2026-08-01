@@ -32,9 +32,11 @@ export async function loadProject(baseUrl = '/') {
 
   const scenes = {};
   await Promise.all(
-    story.scenes.map(async (entry) => {
-      scenes[entry.id] = await json(entry.path);
-    }),
+    story.scenes
+      .flatMap((entry) => [entry, ...(entry.viewpoints ?? [])])
+      .map(async (entry) => {
+        scenes[entry.id] = await json(entry.path);
+      }),
   );
 
   const result = validateProject({ project, story, scenes, assetIndex, state });

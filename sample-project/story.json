@@ -2,7 +2,18 @@
   "formatVersion": 1,
   "start": "meadow",
   "scenes": [
-    { "id": "meadow", "path": "scenes/meadow.json", "next": "shrine" },
-    { "id": "shrine", "path": "scenes/shrine.json", "next": null }
+    {
+      "id": "meadow",
+      "path": "scenes/meadow.json",
+      "next": "shrine",
+      "viewpoints": [{ "id": "meadow-tree", "path": "scenes/meadow-tree.json" }]
+    },
+    {
+      "id": "shrine",
+      "path": "scenes/shrine.json",
+      "next": null,
+      "branches": [{ "when": { "key": "rangBell", "equals": true }, "next": "blessing" }]
+    },
+    { "id": "blessing", "path": "scenes/blessing.json", "next": null }
   ]
 }

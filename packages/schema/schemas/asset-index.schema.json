@@ -21,17 +21,17 @@
           },
           "name": { "type": "string", "description": "Display name shown in the editor." },
           "type": {
-            "enum": ["character", "stage", "prop", "environment"],
+            "enum": ["character", "stage", "prop", "environment", "audio"],
             "description": "Story role of the asset."
           },
           "kind": {
-            "enum": ["gltf", "primitive"],
-            "description": "gltf = model file under assets/models/. primitive = generated placeholder geometry, useful for fixtures and blocking out scenes before real models exist."
+            "enum": ["gltf", "primitive", "audio"],
+            "description": "gltf = model file under assets/models/. primitive = generated placeholder geometry, useful for fixtures and blocking out scenes before real models exist. audio = sound file under assets/audio/."
           },
           "source": {
             "type": "string",
-            "pattern": "^models/.+\\.(glb|gltf)$",
-            "description": "Path relative to assets/, required when kind is gltf."
+            "pattern": "^(models/.+\\.(glb|gltf)|audio/.+\\.(mp3|ogg|wav))$",
+            "description": "Path relative to assets/, required when kind is gltf or audio."
           },
           "primitive": {
             "type": "object",

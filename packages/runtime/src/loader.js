@@ -2,13 +2,13 @@ import { validateDocument, validateProject, migrateScenes, migrateStory } from '
 
 /**
  * Load and validate a whole project from a base URL (a directory containing
- * project.json, story.json, scenes/, assets/, state.json).
+ * project.json, story.json, scenes/, assets/).
  *
  * @param {string} [baseUrl]
  * @returns {Promise<{
  *   baseUrl: string,
  *   project: any, story: any, scenes: Record<string, any>,
- *   assetIndex: any, state: any,
+ *   assetIndex: any,
  * }>}
  */
 export async function loadProject(baseUrl = '/') {
@@ -19,11 +19,10 @@ export async function loadProject(baseUrl = '/') {
     return res.json();
   };
 
-  const [rawStory, project, assetIndex, state] = await Promise.all([
+  const [rawStory, project, assetIndex] = await Promise.all([
     json('story.json'),
     json('project.json'),
     json('assets/index.json'),
-    json('state.json'),
   ]);
 
   // Upgrade the story before validating — scene fetching walks its entries.
@@ -40,10 +39,10 @@ export async function loadProject(baseUrl = '/') {
   // Upgrade older scene documents (e.g. v1 camera tracks) before validating.
   const scenes = migrateScenes(rawScenes);
 
-  const result = validateProject({ project, story, scenes, assetIndex, state });
+  const result = validateProject({ project, story, scenes, assetIndex });
   if (!result.valid) throw invalidError('project', result.errors);
 
-  return { baseUrl, project, story, scenes, assetIndex, state };
+  return { baseUrl, project, story, scenes, assetIndex };
 }
 
 function invalidError(what, errors) {

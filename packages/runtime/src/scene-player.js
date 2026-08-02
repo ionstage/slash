@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { sampleTrack } from './tracks.js';
-import { evalCondition } from './conditions.js';
 import { applyStyle } from './styles.js';
 import { createEffect } from './effects.js';
 
@@ -9,23 +8,17 @@ const DEG = Math.PI / 180;
 /**
  * Assembles one scene document into a Three.js group and drives it from the
  * scene's progress axis: actor tracks, the camera viewpoint (held, with
- * optional drift), glTF clip playback and event triggers. Action execution
- * is delegated to the player via `ctx.run`.
+ * optional drift), glTF idle-clip playback, lights and effects. Scenes are
+ * passive — scrolling is the only input.
  *
  * @param {any} sceneDoc Validated scene document.
  * @param {{
  *   assets: ReturnType<import('./assets.js').createAssetLibrary>,
- *   getState?: (key: string) => unknown,
  *   style?: string,
  *   outline?: object,
- * }} deps getState powers `when` gates, state triggers and visibleWhen;
- *   defaults to "no state" (all conditions with a key fail). style/outline
- *   come from project.renderStyle.
+ * }} deps style/outline come from project.renderStyle.
  */
-export async function createScenePlayer(
-  sceneDoc,
-  { assets, getState = () => undefined, style = 'toon', outline = {} },
-) {
+export async function createScenePlayer(sceneDoc, { assets, style = 'toon', outline = {} }) {
   const group = new THREE.Group();
   group.name = `scene:${sceneDoc.id}`;
 
@@ -78,24 +71,6 @@ export async function createScenePlayer(
     group.add(effect.object);
   }
 
-  let lastT = 0;
-  const fired = new Set();
-
-  // `when` is checked before `once` is consumed: a gated event stays armed
-  // until its condition holds at trigger time.
-  function shouldFire(event) {
-    if (event.when && !evalCondition(event.when, getState)) return false;
-    if (event.once !== false && fired.has(event.id)) return false;
-    fired.add(event.id);
-    return true;
-  }
-
-  function applyVisibility() {
-    for (const { def, object } of actors.values()) {
-      if (def.visibleWhen) object.visible = evalCondition(def.visibleWhen, getState);
-    }
-  }
-
   function updateLightsAndEffects(t, dt) {
     for (const { def, light } of lights.values()) {
       const tracks = def.tracks ?? {};
@@ -139,9 +114,8 @@ export async function createScenePlayer(
      * @param {number} t Scene progress in [0,1].
      * @param {number} dt Seconds since last frame (drives clip playback).
      * @param {THREE.PerspectiveCamera} camera
-     * @param {{ run: (event: any) => void }} ctx
      */
-    update(t, dt, camera, ctx) {
+    update(t, dt, camera) {
       for (const { def, object, mixer } of actors.values()) {
         const tracks = def.tracks ?? {};
         if (tracks.position) object.position.fromArray(sampleTrack(tracks.position, t));
@@ -160,34 +134,7 @@ export async function createScenePlayer(
       camera.fov = pose.fov;
       camera.updateProjectionMatrix();
 
-      applyVisibility();
       updateLightsAndEffects(t, dt);
-
-      for (const event of sceneDoc.events ?? []) {
-        if (event.trigger.type === 'progress') {
-          if (lastT < event.trigger.at && t >= event.trigger.at && shouldFire(event))
-            ctx.run(event);
-        } else if (event.trigger.type === 'state') {
-          // Level-triggered on the progress loop: fires once the state matches.
-          if (getState(event.trigger.key) === event.trigger.equals && shouldFire(event))
-            ctx.run(event);
-        }
-      }
-      lastT = t;
-    },
-
-    /**
-     * Dispatch a tap. Fires tap events targeting the tapped actor, plus
-     * untargeted tap events on any tap.
-     * @param {string | null} actorId
-     * @param {{ run: (event: any) => void }} ctx
-     */
-    handleTap(actorId, ctx) {
-      for (const event of sceneDoc.events ?? []) {
-        if (event.trigger.type !== 'tap') continue;
-        if (event.trigger.target && event.trigger.target !== actorId) continue;
-        if (shouldFire(event)) ctx.run(event);
-      }
     },
   };
 }

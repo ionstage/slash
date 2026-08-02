@@ -1,7 +1,7 @@
 {
   "$id": "slash/story",
   "title": "Slash story graph (story.json)",
-  "description": "Ordering and branching of scenes. Vertical progression = following `next` links; `branches` pick state-dependent outcomes. Each seam into the next section is an instant cut in the current scope.",
+  "description": "A single linear chain of sections. The story starts at `start` and each section links to the next via `next`; the reader descends the chain by scrolling. Every seam is an instant cut.",
   "type": "object",
   "required": ["formatVersion", "start", "scenes"],
   "additionalProperties": false,
@@ -29,53 +29,8 @@
           },
           "next": {
             "type": ["string", "null"],
-            "description": "Scene id that follows when progress passes the end of this scene. null or omitted = story ends here. Evaluated after `branches`."
-          },
-          "transition": {
-            "$ref": "#/$defs/transition",
-            "description": "How the seam into `next` plays. Omitted = a hard cut."
-          },
-          "branches": {
-            "type": "array",
-            "description": "State-dependent outcomes: the first branch whose condition matches decides the next scene, otherwise `next` applies.",
-            "items": {
-              "type": "object",
-              "required": ["when", "next"],
-              "additionalProperties": false,
-              "properties": {
-                "when": { "$ref": "#/$defs/condition" },
-                "next": { "type": "string", "description": "Scene id to continue with." },
-                "transition": {
-                  "$ref": "#/$defs/transition",
-                  "description": "How the seam into this branch's target plays. Omitted = a hard cut."
-                }
-              }
-            }
+            "description": "Scene id that follows when progress passes the end of this scene. null or omitted = story ends here."
           }
-        }
-      }
-    }
-  },
-  "$defs": {
-    "condition": {
-      "type": "object",
-      "required": ["key", "equals"],
-      "additionalProperties": false,
-      "description": "State condition: true when the flag/counter `key` currently equals `equals`.",
-      "properties": {
-        "key": { "type": "string" },
-        "equals": { "type": ["boolean", "number", "string"] }
-      }
-    },
-    "transition": {
-      "type": "object",
-      "required": ["type"],
-      "additionalProperties": false,
-      "description": "How a boundary between two vertically stacked sections plays. Only `cut` (an instant swap at the seam) is supported in the current scope; the registry is an extension point for future seam styles.",
-      "properties": {
-        "type": {
-          "enum": ["cut"],
-          "description": "cut = instant swap at the seam (the default when `transition` is omitted)."
         }
       }
     }

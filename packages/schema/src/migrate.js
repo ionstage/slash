@@ -9,9 +9,8 @@
  * losslessly as drift, so a migrated v1 scene plays identically to the
  * original — see migrateScene.
  *
- * Story v1 → v2: edges gained an optional `transition`. v1 stories had no
- * transitions (every seam was a hard cut), so the upgrade is just a version
- * bump — see migrateStory.
+ * Story v1 → v2: the story is a single linear chain (`next` only), so the
+ * upgrade is just a version bump — see migrateStory.
  */
 
 /** @param {number[]} a @param {number[]} b */
@@ -69,7 +68,7 @@ export function migrateScenes(scenes) {
 
 /**
  * Upgrade a story document to the current format version. v1 → v2 only bumps
- * the version: v1 stories had no edge transitions, so every seam stays a cut.
+ * the version.
  * @param {any} story
  * @returns {any}
  */

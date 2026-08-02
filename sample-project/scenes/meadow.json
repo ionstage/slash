@@ -6,7 +6,6 @@
   "stage": {
     "assetId": "meadow-stage"
   },
-  "audio": { "ambient": "wind" },
   "environment": {
     "fog": { "color": "#1a1a2e", "near": 10, "far": 48 }
   },
@@ -76,20 +75,5 @@
         { "t": 1, "value": [0, 0, -6], "easing": "easeInOut" }
       ]
     }
-  },
-  "events": [
-    {
-      "id": "notice-tree",
-      "trigger": { "type": "tap", "target": "old-tree" },
-      "actions": [
-        { "type": "setState", "key": "noticedTree", "value": true },
-        { "type": "log", "message": "The old tree seems to whisper something." }
-      ]
-    },
-    {
-      "id": "halfway",
-      "trigger": { "type": "progress", "at": 0.5 },
-      "actions": [{ "type": "log", "message": "The meadow darkens as dusk settles." }]
-    }
-  ]
+  }
 }

@@ -252,3 +252,122 @@ Horizontal-swipe touch re-scoping, branching/loop scroll handling (`scrollTo` on
 - **Dual-section rendering cost.** Transition bands render two stages at once; budget for the seam (the heaviest frames) and keep bands short. Continuity keeps both stages live longest.
 - **Branching vs. a real document height.** Only appending height below the frontier keeps `scrollY` stable; reroutes and loops must be explicit `scrollTo`. Loops can otherwise imply unbounded document height.
 - **Migration churn.** Camera (`viewpoint` vs `tracks`) and story edges (`transition`) both move to `formatVersion: 2`; keep the sample project and migrations in lockstep so fixtures don't rot.
+
+---
+
+# S-series — Narrow to a pure scroll runtime
+
+The specification was simplified again (2026-08). Four features are removed
+outright, taking their supporting systems with them:
+
+- **No audio or music.** The audio system, scene `audio` blocks, the
+  `playSound` event action, and audio assets all go.
+- **No branching paths.** The story is a single linear chain of sections
+  (`next` only). Conditional `next`, `branches`, and `gotoScene` are removed
+  — and with them the **state** and **event** systems they existed to serve
+  (confirmed with the owner: strip state + events entirely). Scenes become
+  passive: scroll-driven tracks, camera viewpoint, idle/clip animation,
+  lights and effects, nothing discrete.
+- **No return-to-beginning.** The HUD restart control and the player's
+  `reset()` are removed. The path only ever moves forward.
+- **No progress bar.** Removed from the HUD.
+
+Confirmed with the project owner:
+
+- **Swipe to switch characters** (horizontal viewpoint switching) stays in
+  the spec as an _allowed input_, but remains **unbuilt** — matching the
+  current runtime. No runtime work now; it is a future milestone (swipe
+  driver + viewpoint variants + dual render) if revisited.
+- **State + events are stripped**, not just branch edges. Scenes are fully
+  passive; tap does nothing.
+- **Playback Mode (auto-play)** is removed too — the experience is manual
+  scroll only.
+
+Kept: native scroll + lazy streaming, camera viewpoint (+drift), actor
+transform tracks, glTF idle/action clips, lights (with tracks), effects (now
+always-on — no `setEffect` toggle), render styles + post-processing, and the
+`?stats` / `?sync` debug overlays.
+
+## What the runtime becomes
+
+One scalar still drives everything: `units` (viewport-heights of scroll) →
+per-section progress `t ∈ [0,1]` → camera, actor tracks, lights, effects.
+The story is a deterministic linear chain resolved by `next`; the path still
+appends lazily ahead of the scroll frontier to drive streaming/loading UX.
+
+## Changes by area
+
+### Content format — `packages/schema`
+
+- `schemas/story.schema.json`: drop `branches` and per-edge `transition`;
+  `next` is a plain linear link. Remove `$defs/condition` and
+  `$defs/transition`.
+- `schemas/scene.schema.json`: delete the `audio` block, the entire `events`
+  block (all triggers + actions), and `visibleWhen` on actors. Remove
+  `$defs/condition`. Effects lose the "toggled by events" note (always-on).
+- `schemas/state.schema.json`: **deleted.**
+- `schemas/asset-index.schema.json`: drop the `audio` asset `type`/`kind`
+  and the audio `source` extensions (gltf only).
+- `src/index.js`: remove the `state` schema registration.
+- `src/validator.js`: drop `state` from `validateProject` and every
+  cross-reference for branches, state keys, `gotoScene`, `setState`, audio
+  refs, `visibleWhen`, and events.
+- `src/migrate.js`: keep the camera track→viewpoint migration; update the
+  doc comments (no more transitions/audio/events in the v2 shape).
+- `scripts/validate-sample.js`: stop loading `state.json`.
+
+### Runtime — `packages/runtime/src`
+
+- **Delete** `audio.js`, `state.js`, `conditions.js`.
+- `player.js`: remove the state store, audio system, `runEvent` + all event
+  actions, tap raycasting, `resolveNextEdge` (→ resolve `next` directly),
+  `jumpToScene`/`gotoScene`, auto-play, and `reset()`. Return API shrinks to
+  `{ viewer, onProgress, dispose }`.
+- `scene-player.js`: remove events, `handleTap`, `visibleWhen`, the
+  `getState` dep, and `evalCondition`. Effects run always-on.
+- `scroll.js`: remove `advance()` (auto-play's hook).
+- `hud.js`: remove the progress bar, the ▶ play/pause button, and the ↺
+  restart button. HUD = scene label + scroll hint + loading indicator, plus
+  the optional `stats`/`sync` overlays.
+- `loader.js`: stop fetching/returning `state.json`.
+- `index.js`: drop the `evalCondition`/`resolveNext` exports.
+
+### Sample project — `sample-project/`
+
+- `state.json` deleted; `story.json` made linear (`meadow → shrine →
+blessing`); scenes strip `audio`, `events`, `visibleWhen`; the
+  `blessing-sparks` effect flips to always-on (it waited on `setEffect`);
+  audio assets removed from `assets/index.json`; `assets/audio/*.wav` and
+  `scripts/gen-audio.js` deleted.
+
+### Docs / tests
+
+- `spec.md`: delete Audio System; rewrite Story Branching → horizontal
+  viewpoints only; remove State/Event systems and the loop/revisit parts of
+  Game-like; drop audio from Playback/Story-Progress; update the scope
+  banner.
+- `README.md`, `docs/ai-authoring.md`: drop audio, branches, `gotoScene`,
+  events/state, `playSound`; describe the linear scroll model.
+- `packages/runtime/test/conditions.test.js` deleted; schema
+  `validator.test.js` drops state/events/setState cases.
+
+## S-series milestones (repo stays green at each step)
+
+- **S1 — Data layer.** Schema + validator + migrations + sample project +
+  schema tests. Gate: `npm run validate` passes on the linear, event-free
+  sample.
+- **S2 — Runtime core.** Delete audio/state/conditions; simplify
+  player/scene-player/scroll/loader/index. Gate: `npm run test` +
+  `npm run dev:runtime` scroll-through.
+- **S3 — HUD.** Strip progress bar / restart / auto-play; verify minimal HUD
+  and `?stats` / `?sync`.
+- **S4 — Docs.** `spec.md`, `README.md`, `docs/ai-authoring.md`.
+- **Verify.** `validate`, `test`, `lint`, `build`, and a manual scroll-through.
+
+## S-series notes / risks
+
+- **Fully static path.** With branching/goto/state gone the path is
+  deterministic; lazy streaming is kept for the loading indicator rather than
+  precomputing — smaller diff, same behavior.
+- **Effects toggle loss** is the one behavioral change — any effect that was
+  `enabled: false` waiting on `setEffect` must flip on (see the sample audit).

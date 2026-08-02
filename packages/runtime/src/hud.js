@@ -1,12 +1,12 @@
 /**
- * Default player HUD: progress bar, scene label, scroll hint, play/pause
- * (Playback Mode), and restart. Injects its own DOM and styles into `root`.
+ * Default player HUD: scene label, a scroll hint, and a "Loading…" indicator
+ * when scroll outruns a scene build. Injects its own DOM and styles into
+ * `root`. Optional debug overlays: `stats` (frame-time / triangles / draw
+ * calls) and `sync` (scroll↔content: units, section, t, path length).
  *
  * @param {ReturnType<import('./player.js').createPlayer> extends Promise<infer P> ? P : never} player
  * @param {HTMLElement} [root]
- * @param {{ stats?: boolean, sync?: boolean }} [options] stats shows a
- *   frame-time / triangles / draw-calls readout; sync shows a scroll↔content
- *   debug overlay (units, section, t, path length).
+ * @param {{ stats?: boolean, sync?: boolean }} [options]
  */
 export function attachHud(player, root = document.body, { stats = false, sync = false } = {}) {
   const style = document.createElement('style');
@@ -14,19 +14,10 @@ export function attachHud(player, root = document.body, { stats = false, sync = 
     .slash-hud { position: fixed; inset: 0; pointer-events: none;
       font: 13px/1.5 system-ui, sans-serif; color: rgba(255,255,255,0.75); }
     .slash-hud * { box-sizing: border-box; }
-    .slash-progress { position: absolute; top: 0; left: 0; right: 0; height: 3px;
-      background: rgba(255,255,255,0.12); }
-    .slash-progress-fill { width: 0; height: 100%; background: #e8b04b; }
     .slash-label { position: absolute; left: 16px; bottom: 14px; letter-spacing: 0.06em;
       white-space: pre-wrap; }
     .slash-hint { position: absolute; left: 0; right: 0; bottom: 44px; text-align: center;
       color: rgba(255,255,255,0.55); transition: opacity 0.6s; }
-    .slash-controls { position: absolute; right: 12px; bottom: 10px; display: flex; gap: 6px;
-      pointer-events: auto; }
-    .slash-controls button { background: rgba(30,30,42,0.8); color: rgba(255,255,255,0.85);
-      border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; padding: 4px 10px;
-      font: inherit; cursor: pointer; }
-    .slash-controls button:hover { border-color: #e8b04b; }
     .slash-wait { position: absolute; left: 0; right: 0; bottom: 70px; text-align: center;
       color: rgba(255,255,255,0.6); opacity: 0; transition: opacity 0.3s; }
     .slash-stats { position: absolute; top: 10px; left: 12px;
@@ -40,28 +31,19 @@ export function attachHud(player, root = document.body, { stats = false, sync = 
   const hud = document.createElement('div');
   hud.className = 'slash-hud';
   hud.innerHTML = `
-    <div class="slash-progress"><div class="slash-progress-fill"></div></div>
     <span class="slash-label"></span>
     <div class="slash-hint">Scroll ↓</div>
     <div class="slash-wait">Loading…</div>
-    <div class="slash-controls">
-      <button class="slash-play" title="Playback Mode">▶</button>
-      <button class="slash-reset" title="Restart story">↺</button>
-    </div>
   `;
   root.append(style, hud);
 
-  const fill = hud.querySelector('.slash-progress-fill');
   const label = hud.querySelector('.slash-label');
   const hint = hud.querySelector('.slash-hint');
-  const playBtn = hud.querySelector('.slash-play');
   const waitEl = hud.querySelector('.slash-wait');
 
-  player.onProgress(({ units, totalUnits, scene, autoPlay, loading }) => {
-    fill.style.width = `${(units / Math.max(totalUnits, 1e-6)) * 100}%`;
+  player.onProgress(({ units, scene, loading }) => {
     label.textContent = scene.name ?? scene.id;
     hint.style.opacity = units > 0.2 ? '0' : '1';
-    playBtn.textContent = autoPlay ? '⏸' : '▶';
     waitEl.style.opacity = loading ? '1' : '0';
   });
 
@@ -96,9 +78,6 @@ export function attachHud(player, root = document.body, { stats = false, sync = 
         `path ${pathLength}${loading ? '  ⏳ loading' : ''}`;
     });
   }
-
-  playBtn.addEventListener('click', () => player.setAutoPlay(!player.autoPlay));
-  hud.querySelector('.slash-reset').addEventListener('click', () => player.reset());
 
   return {
     /** Also expose the label for error reporting by boot code. */

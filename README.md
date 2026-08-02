@@ -1,14 +1,15 @@
 # Slash
 
 A scroll-driven 3D story runtime. Scrolling down advances the story; content
-(camera, characters, lighting, effects, audio) is driven in lockstep with the
-scroll position. See `spec.md` for the vision.
+(camera, characters, lighting, effects) is driven in lockstep with the scroll
+position. See `spec.md` for the vision.
 
 **Current scope.** The project has been narrowed to a polished runtime focused
-on scroll behavior and scroll↔content synchronization, supporting a linear
-story path with branching. The authoring editor, seamless transitions
-(crossfade/camera/continuity), horizontal viewpoint switching, AI generation,
-and the export pipeline are deferred; git history preserves them.
+on scroll behavior and scroll↔content synchronization, playing a single
+**linear** story path. Scenes are passive — scrolling is the only input. The
+authoring editor, seamless transitions (crossfade/camera/continuity),
+horizontal viewpoint switching, branching, the state/event system, audio, AI
+generation, and the export pipeline are deferred; git history preserves them.
 
 ## Structure
 

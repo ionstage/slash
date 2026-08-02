@@ -2,14 +2,17 @@
 
 ## 3D Story Authoring Tool
 
-> **Current scope (2026-08).** This document describes the full vision, which is
-> unchanged. Implementation has been deliberately narrowed to a polished
-> **runtime** focused on scroll behavior and scroll↔content synchronization,
-> playing a **linear story path with branching**. Deferred for now (preserved in
-> git history): the authoring **Editor**, seamless boundary transitions
-> (crossfade / camera move / continuity), horizontal **viewpoint** switching,
-> **AI** generation, and the **export/optimization** pipeline. Sections below
-> that describe those systems are vision, not the current build.
+> **Current scope (2026-08).** This document describes the full vision. The
+> current build is a deliberately narrowed **runtime** focused on scroll
+> behavior and scroll↔content synchronization, playing a **single linear story
+> path**. Scenes are **passive**: vertical scroll is the only input. Deferred
+> for now (preserved in git history): the authoring **Editor**, seamless
+> boundary transitions (crossfade / camera move / continuity), horizontal
+> **viewpoint** switching (swipe to switch characters — allowed by the vision,
+> not yet built), story **branching**, the **State** and **Event** systems,
+> **Audio**, automatic **Playback Mode**, **AI** generation, and the
+> **export/optimization** pipeline. Sections below that describe those systems
+> are vision, not the current build.
 
 ## Overview
 
@@ -25,8 +28,6 @@ The purpose is to create immersive story experiences by combining:
 - Camera direction
 - Lighting
 - Effects
-- Events
-- Interactive choices
 
 Implementation:
 
@@ -103,7 +104,6 @@ AI should be able to generate and modify:
 - Characters
 - 3D assets
 - Animations
-- Events
 - Configurations
 
 All data should be structured and machine-readable.
@@ -132,8 +132,6 @@ Responsible for:
 - Scene data
 - Asset references
 - Animation data
-- Event data
-- State data
 
 ## Runtime
 
@@ -161,9 +159,7 @@ Story Progress controls:
 - Character movement
 - Stage movement
 - Animation changes
-- Events
 - Effects
-- Audio
 
 Input methods:
 
@@ -173,21 +169,11 @@ User controls progression through:
 
 - Vertical scroll
 - Horizontal swipe
-- Tap
-- Selection
 
 Vertical scroll uses the browser's native scrolling.
 It is the primary navigation axis: scrolling down advances the story.
-Horizontal swipe is reserved for viewpoint switching.
-
-## Playback Input
-
-Automatic progression through:
-
-- Auto scroll
-- Timeline playback
-
-Both Interactive Mode and Playback Mode use the same Story Progress system.
+Horizontal swipe is reserved for viewpoint switching (swipe to switch
+characters).
 
 ---
 
@@ -199,27 +185,6 @@ Supported:
 
 - Scroll to advance story
 - Swipe to change viewpoint
-- Select characters
-- Trigger interactions
-
----
-
-# Playback Mode
-
-Playback Mode provides an automatic story experience.
-
-Supported:
-
-- Auto scrolling
-- Camera direction
-- Character animation
-- Stage animation
-- Event execution
-- BGM
-- Sound effects
-- Environment sounds
-
-Provides a cinematic viewing experience.
 
 ---
 
@@ -391,9 +356,6 @@ Supported:
 Animation is controlled by:
 
 - Story Progress
-- Events
-- User interaction
-- Playback timeline
 
 Animation prioritizes storytelling impact.
 
@@ -457,9 +419,9 @@ Build optimization:
 
 ---
 
-# Story Branching
+# Story Structure
 
-Slash supports branching stories.
+The story is a single linear sequence.
 
 ## Vertical Progression
 
@@ -467,6 +429,8 @@ Represents:
 
 - Time
 - Main story flow
+
+Scrolling down moves through the sequence.
 
 ## Horizontal Switching
 
@@ -478,75 +442,10 @@ Represents:
 Supported:
 
 - Multiple character viewpoints
-- Swipe-based switching
-- Different story outcomes
+- Swipe-based switching (swipe to switch characters)
 
-Example:
-
-Multiple characters exist on the same stage.
-Selecting a character changes the following story path.
-
----
-
-# Game-like Story System
-
-Game mechanics can enhance storytelling.
-
-Supported:
-
-- Story loops
-- Revisiting scenes
-- State-dependent changes
-- Hidden elements
-- Choices
-- Simple interactions
-
-The goal is not to build a full game engine.
-
-The goal is richer storytelling.
-
----
-
-# State System
-
-The story maintains state.
-
-Examples:
-
-- Progress
-- Flags
-- Visited scenes
-- Items
-- Character states
-- Unlocked events
-
----
-
-# Event System
-
-Events are data-driven.
-
-## Trigger
-
-Examples:
-
-- Scroll position
-- Tap
-- Swipe
-- Location
-- Condition
-- State change
-
-## Action
-
-Examples:
-
-- Play animation
-- Move camera
-- Show effect
-- Change scene
-- Update state
-- Play sound
+Horizontal switching changes the viewpoint on the same story, not the story
+path — there are no branches or alternative outcomes.
 
 ---
 
@@ -585,8 +484,6 @@ Editable:
 - Lighting
 - Effects
 - Animations
-- Events
-- Branching
 
 ---
 
@@ -595,7 +492,6 @@ Editable:
 Preview:
 
 - Interactive scroll experience
-- Playback experience
 - Swipe interaction
 - Animation
 - Lighting
@@ -649,22 +545,6 @@ Supported:
 
 ---
 
-# Audio System
-
-Supported:
-
-- BGM
-- Sound effects
-- Environment sounds
-
-Audio enhances:
-
-- Storytelling
-- Atmosphere
-- Immersion
-
----
-
 # Performance
 
 Runtime optimization:
@@ -693,6 +573,5 @@ AI-assisted generation:
 - Scene generation
 - Character setup
 - Asset generation
-- Event generation
 
 All data should be easy for AI systems to understand and modify.

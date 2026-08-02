@@ -1,0 +1,252 @@
+{
+  "$id": "slash/world",
+  "title": "Slash world (world.json)",
+  "description": "One continuous vertical world. Scroll is a single axis measured in viewport-heights; the camera descends through a world that is fixed in space, so environments stream past while camera-following actors stay framed. Objects are placed at an absolute worldY within a parallax layer. There are no scenes or cuts — atmosphere, framing and parallax are continuous over global progress g in [0,1]. Passive: vertical scroll is the only input.",
+  "type": "object",
+  "required": ["formatVersion", "id", "length", "camera", "layers"],
+  "additionalProperties": false,
+  "properties": {
+    "formatVersion": { "const": 3 },
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+    "name": { "type": "string", "description": "Display name." },
+    "length": {
+      "type": "number",
+      "minimum": 0.5,
+      "maximum": 200,
+      "description": "Total scroll length in viewport-heights. Sets the scroll spacer height and the denominator of global progress g."
+    },
+    "travelPerUnit": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 100,
+      "description": "Metres the camera descends per viewport-height of scroll. The knob that ties scroll feel to world scale. Default 1."
+    },
+    "camera": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["offset", "target"],
+      "description": "A dolly rig that descends with scroll. offset/target are authored relative to the descending travel point; optional drift adds subtle motion over g.",
+      "properties": {
+        "offset": {
+          "$ref": "#/$defs/vec3",
+          "description": "Camera position relative to the travel point, in metres."
+        },
+        "target": {
+          "$ref": "#/$defs/vec3",
+          "description": "Look-at point relative to the travel point, in metres."
+        },
+        "fov": { "type": "number", "minimum": 10, "maximum": 120, "description": "Vertical FOV degrees. Default 50." },
+        "drift": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Restrained art-directed motion: offsets added over global progress g in [0,1]. Keep it subtle.",
+          "properties": {
+            "position": { "$ref": "#/$defs/vec3Track" },
+            "target": { "$ref": "#/$defs/vec3Track" },
+            "fov": { "$ref": "#/$defs/numberTrack" }
+          }
+        }
+      }
+    },
+    "layers": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Parallax plates, back-to-front. Every object names a layer. parallax 1 = true world space (full parallax); parallax → 0 = rides the camera (appears infinitely far).",
+      "items": {
+        "type": "object",
+        "required": ["id", "parallax"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+          "name": { "type": "string" },
+          "parallax": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Extra parallax factor on top of natural perspective."
+          }
+        }
+      }
+    },
+    "objects": {
+      "type": "array",
+      "description": "Stages and props placed along the vertical axis. Position = transform (X/Z lateral offset) with worldY added to Y.",
+      "items": {
+        "type": "object",
+        "required": ["id", "assetId", "layer", "worldY"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+          "assetId": { "type": "string", "description": "Asset id from assets/index.json." },
+          "layer": { "type": "string", "description": "Id of a layer in `layers`." },
+          "worldY": { "type": "number", "description": "Vertical placement in metres (added to transform.position Y)." },
+          "transform": { "$ref": "#/$defs/transform" }
+        }
+      }
+    },
+    "actors": {
+      "type": "array",
+      "description": "Characters that persist through the scroll. follow \"camera\" rides the descending rig (stays framed while the world streams past); follow \"world\" is placed at worldY and left behind as the camera passes.",
+      "items": {
+        "type": "object",
+        "required": ["id", "assetId"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+          "assetId": { "type": "string" },
+          "follow": {
+            "enum": ["camera", "world"],
+            "description": "camera = travels with the viewer through the world (stays framed); world = anchored at worldY. Default world."
+          },
+          "worldY": {
+            "type": "number",
+            "description": "Vertical placement for follow \"world\" actors (ignored when follow is \"camera\")."
+          },
+          "transform": { "$ref": "#/$defs/transform" },
+          "idleClip": {
+            "type": "string",
+            "description": "Name of a glTF animation clip to loop while idle."
+          },
+          "tracks": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Transform animation keyed over global progress g in [0,1]. For camera-following actors this is motion relative to the rig (sway, bob).",
+            "properties": {
+              "position": { "$ref": "#/$defs/vec3Track" },
+              "rotation": { "$ref": "#/$defs/vec3Track" },
+              "scale": { "$ref": "#/$defs/vec3Track" }
+            }
+          }
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Continuous atmosphere over the whole descent, keyframed over global progress g.",
+      "properties": {
+        "fog": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["color", "near", "far"],
+          "description": "Linear fog whose colour and range animate over g. Colour is RGB in [0,1] (array form so it can be keyframed).",
+          "properties": {
+            "color": { "$ref": "#/$defs/vec3Track" },
+            "near": { "$ref": "#/$defs/numberTrack" },
+            "far": { "$ref": "#/$defs/numberTrack" }
+          }
+        },
+        "lights": {
+          "type": "array",
+          "description": "World lighting. When present, replaces the runtime default lights. Tracks animate over g (time-of-day shifts).",
+          "items": {
+            "type": "object",
+            "required": ["id", "type"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+              "type": { "enum": ["ambient", "directional", "point"] },
+              "color": { "$ref": "#/$defs/vec3", "description": "RGB in [0,1]." },
+              "intensity": { "type": "number", "minimum": 0 },
+              "position": { "$ref": "#/$defs/vec3" },
+              "target": { "$ref": "#/$defs/vec3", "description": "Aim point (directional lights)." },
+              "distance": { "type": "number", "minimum": 0, "description": "Point light falloff (0 = infinite)." },
+              "follow": {
+                "enum": ["camera", "world"],
+                "description": "camera = the light rides the descending rig (a key light that follows the traveler); world = fixed in space. Default camera."
+              },
+              "tracks": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "intensity": { "$ref": "#/$defs/numberTrack" },
+                  "color": { "$ref": "#/$defs/vec3Track" },
+                  "position": { "$ref": "#/$defs/vec3Track" }
+                }
+              }
+            }
+          }
+        },
+        "effects": {
+          "type": "array",
+          "description": "Ambient particle effects that travel with the viewer, animated over g.",
+          "items": {
+            "type": "object",
+            "required": ["id", "preset"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+              "preset": { "enum": ["rain", "snow", "sparks", "fireflies"] },
+              "enabled": { "type": "boolean" },
+              "count": { "type": "integer", "minimum": 1, "maximum": 5000 },
+              "area": { "$ref": "#/$defs/vec3", "description": "Emission box size in metres. Default [20,10,20]." },
+              "position": { "$ref": "#/$defs/vec3", "description": "Centre of the emission box (relative to the viewer)." },
+              "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+              "size": { "type": "number", "exclusiveMinimum": 0 },
+              "tracks": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "intensity": { "$ref": "#/$defs/numberTrack", "description": "0..1 opacity/emission over g." }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "transform": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Position in metres, rotation as XYZ euler degrees, uniform or per-axis scale.",
+      "properties": {
+        "position": { "$ref": "#/$defs/vec3" },
+        "rotation": { "$ref": "#/$defs/vec3" },
+        "scale": {
+          "oneOf": [{ "type": "number", "exclusiveMinimum": 0 }, { "$ref": "#/$defs/vec3" }]
+        }
+      }
+    },
+    "vec3": {
+      "type": "array",
+      "items": { "type": "number" },
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "easing": {
+      "enum": ["linear", "easeIn", "easeOut", "easeInOut", "step"],
+      "description": "Interpolation from the previous keyframe to this one. Default linear."
+    },
+    "vec3Track": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Keyframes over global progress g in [0,1], sorted by t.",
+      "items": {
+        "type": "object",
+        "required": ["t", "value"],
+        "additionalProperties": false,
+        "properties": {
+          "t": { "type": "number", "minimum": 0, "maximum": 1 },
+          "value": { "$ref": "#/$defs/vec3" },
+          "easing": { "$ref": "#/$defs/easing" }
+        }
+      }
+    },
+    "numberTrack": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["t", "value"],
+        "additionalProperties": false,
+        "properties": {
+          "t": { "type": "number", "minimum": 0, "maximum": 1 },
+          "value": { "type": "number" },
+          "easing": { "$ref": "#/$defs/easing" }
+        }
+      }
+    }
+  }
+}

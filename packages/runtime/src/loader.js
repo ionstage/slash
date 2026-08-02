@@ -1,14 +1,13 @@
-import { validateDocument, validateProject, migrateScenes, migrateStory } from '@slash/schema';
+import { validateProject, migrateWorld } from '@slash/schema';
 
 /**
  * Load and validate a whole project from a base URL (a directory containing
- * project.json, story.json, scenes/, assets/).
+ * project.json, world.json, assets/).
  *
  * @param {string} [baseUrl]
  * @returns {Promise<{
  *   baseUrl: string,
- *   project: any, story: any, scenes: Record<string, any>,
- *   assetIndex: any,
+ *   project: any, world: any, assetIndex: any,
  * }>}
  */
 export async function loadProject(baseUrl = '/') {
@@ -19,30 +18,18 @@ export async function loadProject(baseUrl = '/') {
     return res.json();
   };
 
-  const [rawStory, project, assetIndex] = await Promise.all([
-    json('story.json'),
+  const [rawWorld, project, assetIndex] = await Promise.all([
+    json('world.json'),
     json('project.json'),
     json('assets/index.json'),
   ]);
 
-  // Upgrade the story before validating — scene fetching walks its entries.
-  const story = migrateStory(rawStory);
-  const storyCheck = validateDocument('story', story);
-  if (!storyCheck.valid) throw invalidError('story.json', storyCheck.errors);
+  const world = migrateWorld(rawWorld);
 
-  const rawScenes = {};
-  await Promise.all(
-    story.scenes.map(async (entry) => {
-      rawScenes[entry.id] = await json(entry.path);
-    }),
-  );
-  // Upgrade older scene documents (e.g. v1 camera tracks) before validating.
-  const scenes = migrateScenes(rawScenes);
-
-  const result = validateProject({ project, story, scenes, assetIndex });
+  const result = validateProject({ project, world, assetIndex });
   if (!result.valid) throw invalidError('project', result.errors);
 
-  return { baseUrl, project, story, scenes, assetIndex };
+  return { baseUrl, project, world, assetIndex };
 }
 
 function invalidError(what, errors) {

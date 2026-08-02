@@ -1,10 +1,10 @@
 /**
- * Default player HUD: scene label, a scroll hint, and a "Loading…" indicator
- * when scroll outruns a scene build. Injects its own DOM and styles into
- * `root`. Optional debug overlays: `stats` (frame-time / triangles / draw
- * calls) and `sync` (scroll↔content: units, section, t, path length).
+ * Default player HUD: world label and a scroll hint. Injects its own DOM and
+ * styles into `root`. Optional debug overlays: `stats` (frame-time / triangles
+ * / draw calls) and `sync` (scroll↔world: units, global progress, camera
+ * descent, per-layer parallax offsets — for verifying the scroll behaviour).
  *
- * @param {ReturnType<import('./player.js').createPlayer> extends Promise<infer P> ? P : never} player
+ * @param {Awaited<ReturnType<import('./world-player.js').createWorldPlayer>>} player
  * @param {HTMLElement} [root]
  * @param {{ stats?: boolean, sync?: boolean }} [options]
  */
@@ -18,8 +18,6 @@ export function attachHud(player, root = document.body, { stats = false, sync = 
       white-space: pre-wrap; }
     .slash-hint { position: absolute; left: 0; right: 0; bottom: 44px; text-align: center;
       color: rgba(255,255,255,0.55); transition: opacity 0.6s; }
-    .slash-wait { position: absolute; left: 0; right: 0; bottom: 70px; text-align: center;
-      color: rgba(255,255,255,0.6); opacity: 0; transition: opacity 0.3s; }
     .slash-stats { position: absolute; top: 10px; left: 12px;
       font: 11px/1.5 ui-monospace, monospace; color: rgba(255,255,255,0.65);
       background: rgba(10,10,16,0.5); border-radius: 4px; padding: 2px 8px; }
@@ -33,18 +31,15 @@ export function attachHud(player, root = document.body, { stats = false, sync = 
   hud.innerHTML = `
     <span class="slash-label"></span>
     <div class="slash-hint">Scroll ↓</div>
-    <div class="slash-wait">Loading…</div>
   `;
   root.append(style, hud);
 
   const label = hud.querySelector('.slash-label');
   const hint = hud.querySelector('.slash-hint');
-  const waitEl = hud.querySelector('.slash-wait');
 
-  player.onProgress(({ units, scene, loading }) => {
-    label.textContent = scene.name ?? scene.id;
+  player.onProgress(({ units, name }) => {
+    label.textContent = name;
     hint.style.opacity = units > 0.2 ? '0' : '1';
-    waitEl.style.opacity = loading ? '1' : '0';
   });
 
   if (stats) {
@@ -71,11 +66,15 @@ export function attachHud(player, root = document.body, { stats = false, sync = 
     syncEl.className = 'slash-sync';
     syncEl.style.top = stats ? '36px' : '10px';
     hud.append(syncEl);
-    player.onProgress(({ units, totalUnits, scene, t, pathLength, loading }) => {
+    player.onProgress(({ units, totalUnits, g, travel, cameraY, layers }) => {
+      const layerLines = layers
+        .map((l) => `  ${l.id.padEnd(6)} p${l.parallax.toFixed(2)}  y ${l.y.toFixed(1)}`)
+        .join('\n');
       syncEl.textContent =
         `units ${units.toFixed(3)} / ${totalUnits.toFixed(2)}\n` +
-        `section ${scene.id}  t ${t.toFixed(3)}\n` +
-        `path ${pathLength}${loading ? '  ⏳ loading' : ''}`;
+        `g ${g.toFixed(3)}   travel ${travel.toFixed(1)}m\n` +
+        `camera.y ${cameraY.toFixed(1)}\n` +
+        `layers (offset y):\n${layerLines}`;
     });
   }
 

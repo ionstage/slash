@@ -1,7 +1,7 @@
 export { createViewer } from './viewer.js';
 export { loadProject } from './loader.js';
-export { createPlayer } from './player.js';
+export { createWorldPlayer } from './world-player.js';
 export { sampleTrack } from './tracks.js';
+export * as worldMap from './world-map.js';
 export { createAssetLibrary } from './assets.js';
-export { createScenePlayer } from './scene-player.js';
 export { attachHud, showBootOverlay } from './hud.js';

@@ -24,6 +24,9 @@ effect targets). Generated content must pass this before it is usable.
 
 ## The mental model
 
+- The story is a **vertically connected sequence** of scenes the viewer
+  descends by **native vertical scroll** — scrolling down advances the story;
+  horizontal swipe switches viewpoints. Progress is in viewport-heights.
 - A **scene** plays over a progress axis `t ∈ [0,1]`, driven by scrolling
   (or auto-play). Everything animated is a **track**: keyframes
   `{t, value, easing}` (easing on a keyframe shapes the segment *into* it).

@@ -166,6 +166,10 @@ User controls progression through:
 - Tap
 - Selection
 
+Vertical scroll uses the browser's native scrolling.
+It is the primary navigation axis: scrolling down advances the story.
+Horizontal swipe is reserved for viewpoint switching.
+
 ## Playback Input
 
 Automatic progression through:
@@ -246,6 +250,31 @@ Examples:
 - Changing environments
 - Animated background elements
 - Interactive objects
+
+## Connected Stages
+
+Stages form a vertically connected sequence.
+Scrolling down moves through the sequence.
+
+Some boundaries are independent.
+Others are seamless: objects or characters continue from one stage into the next.
+
+Each boundary's transition is author-selected, per boundary:
+
+- Cut — instant change
+- Cross-fade — the two stages dissolve across the boundary
+- Camera move — the camera glides from one stage's viewpoint to the next
+- Continuity — the stages coexist at an authored offset while carried characters cross the seam
+
+## Camera Viewpoints
+
+Each stage is framed from a single intended viewpoint.
+The viewpoint is a fixed shot — like a comic panel — of a fully realized 3D stage.
+A stage only needs to look correct from its own viewpoint.
+
+Optional restrained drift adds subtle in-stage camera motion.
+
+Characters move *through* the connected environments with restrained, idle-led motion.
 
 ---
 

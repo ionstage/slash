@@ -53,7 +53,12 @@ function convertMaterial(material, style) {
       return new THREE.MeshToonMaterial({ ...base, gradientMap: gradientMap() });
     }
     case 'lowpoly':
-      return new THREE.MeshStandardMaterial({ ...base, flatShading: true, roughness: 0.9, metalness: 0 });
+      return new THREE.MeshStandardMaterial({
+        ...base,
+        flatShading: true,
+        roughness: 0.9,
+        metalness: 0,
+      });
     case 'realistic':
       if (material.isMeshStandardMaterial) return material;
       return new THREE.MeshStandardMaterial({ ...base, roughness: 0.8, metalness: 0 });

@@ -1,15 +1,14 @@
 /**
- * Default player HUD, shared by the demo page, the editor preview and
- * exported stories: progress bar, scene label, scroll hint, play/pause
- * (Playback Mode), restart, and a viewpoint indicator when the current
- * story span has variants. Injects its own DOM and styles into `root`.
+ * Default player HUD: progress bar, scene label, scroll hint, play/pause
+ * (Playback Mode), and restart. Injects its own DOM and styles into `root`.
  *
  * @param {ReturnType<import('./player.js').createPlayer> extends Promise<infer P> ? P : never} player
  * @param {HTMLElement} [root]
- * @param {{ stats?: boolean }} [options] stats shows a frame-time /
- *   triangles / draw-calls readout (used by the editor preview).
+ * @param {{ stats?: boolean, sync?: boolean }} [options] stats shows a
+ *   frame-time / triangles / draw-calls readout; sync shows a scroll↔content
+ *   debug overlay (units, section, t, path length).
  */
-export function attachHud(player, root = document.body, { stats = false } = {}) {
+export function attachHud(player, root = document.body, { stats = false, sync = false } = {}) {
   const style = document.createElement('style');
   style.textContent = `
     .slash-hud { position: fixed; inset: 0; pointer-events: none;
@@ -28,16 +27,14 @@ export function attachHud(player, root = document.body, { stats = false } = {}) 
       border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; padding: 4px 10px;
       font: inherit; cursor: pointer; }
     .slash-controls button:hover { border-color: #e8b04b; }
-    .slash-viewpoint { position: absolute; top: 12px; right: 12px; display: none; gap: 4px;
-      align-items: center; color: rgba(255,255,255,0.7); }
-    .slash-viewpoint .dot { width: 7px; height: 7px; border-radius: 50%;
-      background: rgba(255,255,255,0.3); }
-    .slash-viewpoint .dot.on { background: #e8b04b; }
     .slash-wait { position: absolute; left: 0; right: 0; bottom: 70px; text-align: center;
       color: rgba(255,255,255,0.6); opacity: 0; transition: opacity 0.3s; }
     .slash-stats { position: absolute; top: 10px; left: 12px;
       font: 11px/1.5 ui-monospace, monospace; color: rgba(255,255,255,0.65);
       background: rgba(10,10,16,0.5); border-radius: 4px; padding: 2px 8px; }
+    .slash-sync { position: absolute; left: 12px; white-space: pre;
+      font: 11px/1.5 ui-monospace, monospace; color: rgba(255,255,255,0.7);
+      background: rgba(10,10,16,0.55); border-radius: 4px; padding: 4px 8px; }
   `;
 
   const hud = document.createElement('div');
@@ -46,7 +43,6 @@ export function attachHud(player, root = document.body, { stats = false } = {}) 
     <div class="slash-progress"><div class="slash-progress-fill"></div></div>
     <span class="slash-label"></span>
     <div class="slash-hint">Scroll ↓</div>
-    <div class="slash-viewpoint"></div>
     <div class="slash-wait">Loading…</div>
     <div class="slash-controls">
       <button class="slash-play" title="Playback Mode">▶</button>
@@ -59,7 +55,6 @@ export function attachHud(player, root = document.body, { stats = false } = {}) 
   const label = hud.querySelector('.slash-label');
   const hint = hud.querySelector('.slash-hint');
   const playBtn = hud.querySelector('.slash-play');
-  const viewpointEl = hud.querySelector('.slash-viewpoint');
   const waitEl = hud.querySelector('.slash-wait');
 
   player.onProgress(({ units, totalUnits, scene, autoPlay, loading }) => {
@@ -82,24 +77,25 @@ export function attachHud(player, root = document.body, { stats = false } = {}) 
       if (elapsed >= 0.5) {
         const info = player.viewer.renderer.info.render;
         const k = (n) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n));
-        statsEl.textContent =
-          `${Math.round(frames / elapsed)} fps · ${k(info.triangles)} tris · ${info.calls} calls`;
+        statsEl.textContent = `${Math.round(frames / elapsed)} fps · ${k(info.triangles)} tris · ${info.calls} calls`;
         frames = 0;
         elapsed = 0;
       }
     });
   }
 
-  player.onViewpoint(({ index, count }) => {
-    viewpointEl.style.display = count > 1 ? 'flex' : 'none';
-    viewpointEl.replaceChildren(
-      ...Array.from({ length: count }, (_, i) => {
-        const dot = document.createElement('span');
-        dot.className = 'dot' + (i === index ? ' on' : '');
-        return dot;
-      }),
-    );
-  });
+  if (sync) {
+    const syncEl = document.createElement('div');
+    syncEl.className = 'slash-sync';
+    syncEl.style.top = stats ? '36px' : '10px';
+    hud.append(syncEl);
+    player.onProgress(({ units, totalUnits, scene, t, pathLength, loading }) => {
+      syncEl.textContent =
+        `units ${units.toFixed(3)} / ${totalUnits.toFixed(2)}\n` +
+        `section ${scene.id}  t ${t.toFixed(3)}\n` +
+        `path ${pathLength}${loading ? '  ⏳ loading' : ''}`;
+    });
+  }
 
   playBtn.addEventListener('click', () => player.setAutoPlay(!player.autoPlay));
   hud.querySelector('.slash-reset').addEventListener('click', () => player.reset());

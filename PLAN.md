@@ -160,7 +160,7 @@ The content specification was updated after M6. Four changes to the model:
 - **Native scrolling.** The runtime uses the browser's native scroll instead of hijacking wheel/touch into a virtual, damped `units` value (`packages/runtime/src/scroll.js`). Browser momentum provides the feel.
 - **Vertically connected stages.** The story is a vertically stacked sequence the viewer descends through. Some stages are independent; others transition seamlessly, with objects or characters continuing from one stage into the next so a boundary can feel like one continuous environment.
 - **Comic-panel viewpoints.** Each section only needs to work from one intended camera viewpoint — a fully realized 3D stage framed like a comic panel — rather than authored camera keyframe tracks that must hold up from every angle.
-- **Restrained character motion.** Characters move *through* the connected environments; animation is subtle, idle-led, not free per-actor choreography.
+- **Restrained character motion.** Characters move _through_ the connected environments; animation is subtle, idle-led, not free per-actor choreography.
 
 Preserved from M1–M6: the story graph, dynamic path, event/state/effects/audio systems, **horizontal-swipe viewpoint switching, and branching**. Native vertical scroll is the primary navigation; horizontal viewpoints and branches remain.
 
@@ -214,7 +214,7 @@ Transition `type` is the author-selectable dial:
 
 ### N0 — Native scroll spike (riskiest; do first)
 
-Sticky canvas + spacer + `scrollY → units`, driving the *existing* camera tracks unchanged. Prove the feel on desktop and iOS Safari before anything else layers on top.
+Sticky canvas + spacer + `scrollY → units`, driving the _existing_ camera tracks unchanged. Prove the feel on desktop and iOS Safari before anything else layers on top.
 
 **Done when:** the sample project plays end to end on native scroll on desktop and a phone, with no virtual-scroll code path.
 

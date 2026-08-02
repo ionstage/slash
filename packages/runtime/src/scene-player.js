@@ -59,7 +59,8 @@ export async function createScenePlayer(
     const intensity = def.intensity ?? 1;
     let light;
     if (def.type === 'ambient') light = new THREE.AmbientLight(color, intensity);
-    else if (def.type === 'point') light = new THREE.PointLight(color, intensity, def.distance ?? 0);
+    else if (def.type === 'point')
+      light = new THREE.PointLight(color, intensity, def.distance ?? 0);
     else {
       light = new THREE.DirectionalLight(color, intensity);
       light.target.position.fromArray(def.target ?? [0, 0, 0]);
@@ -76,25 +77,6 @@ export async function createScenePlayer(
     effects.set(def.id, effect);
     group.add(effect.object);
   }
-
-  // Isolate mesh materials so this scene's opacity can be driven independently
-  // during transitions (primitive assets share a template material otherwise).
-  // Particle effects keep their own materials — they manage their own opacity.
-  const fadeMeshes = [];
-  group.traverse((node) => {
-    if (!node.isMesh) return;
-    node.material = node.material.clone();
-    node.material.userData.slashBaseOpacity = node.material.opacity;
-    node.material.userData.slashBaseTransparent = node.material.transparent;
-    fadeMeshes.push(node);
-  });
-
-  // Actors carried in from a previous section by a `continuity` seam. They are
-  // reparented here (not re-instantiated), kept visible and idle-animated, but
-  // NOT driven by this scene's tracks — they hold the pose handed off at the
-  // seam ("the character walked in and now stands here").
-  /** @type {Map<string, {object: import('three').Object3D, mixer: THREE.AnimationMixer | null}>} */
-  const adopted = new Map();
 
   let lastT = 0;
   const fired = new Set();
@@ -131,11 +113,15 @@ export async function createScenePlayer(
     const tgt = [...viewpoint.target];
     if (drift?.position) {
       const d = sampleTrack(drift.position, t);
-      pos[0] += d[0]; pos[1] += d[1]; pos[2] += d[2];
+      pos[0] += d[0];
+      pos[1] += d[1];
+      pos[2] += d[2];
     }
     if (drift?.target) {
       const d = sampleTrack(drift.target, t);
-      tgt[0] += d[0]; tgt[1] += d[1]; tgt[2] += d[2];
+      tgt[0] += d[0];
+      tgt[1] += d[1];
+      tgt[2] += d[2];
     }
     const fov = (viewpoint.fov ?? 50) + (drift?.fov ? sampleTrack(drift.fov, t) : 0);
     return { position: pos, target: tgt, fov };
@@ -149,120 +135,13 @@ export async function createScenePlayer(
     hasLights: lights.size > 0,
 
     /**
-     * Ambient-only advance (idle clips, particles) without touching
-     * progress, camera or events — used by the editor viewport.
-     */
-    tickAmbient(dt) {
-      for (const { mixer } of actors.values()) mixer?.update(dt);
-      for (const { mixer } of adopted.values()) mixer?.update(dt);
-      updateLightsAndEffects(lastT, dt);
-    },
-
-    /** The section's camera pose (position/target/fov) at progress t. */
-    sampleCamera: cameraPose,
-
-    /**
-     * Remove an authored actor from this scene (stops track-driving and
-     * rendering it) and return its record so a `continuity` seam can carry it
-     * into the next section. Returns null if this scene doesn't own `id`.
-     * @param {string} id
-     */
-    detachActor(id) {
-      const record = actors.get(id);
-      if (!record) return null;
-      actors.delete(id);
-      group.remove(record.object);
-      return record;
-    },
-
-    /**
-     * Re-insert a previously {@link detachActor}ed record (its own scene),
-     * restoring track-driven playback. Used when scrolling back across a
-     * continuity seam.
-     */
-    attachActor(record) {
-      actors.set(record.def.id, record);
-      group.add(record.object);
-    },
-
-    /**
-     * Adopt an actor carried in from another section: reparent its object here
-     * and idle-animate it, without track-driving it. `object` is expected to
-     * already sit at the correct local pose.
-     * @param {string} id
-     * @param {{object: import('three').Object3D, mixer: THREE.AnimationMixer | null}} record
-     */
-    adoptActor(id, record) {
-      adopted.set(id, record);
-      group.add(record.object);
-    },
-
-    /**
-     * Snap one authored actor to its track pose at progress `t`, with no other
-     * side effects. A `continuity` handoff calls this at the seam (t=1) so the
-     * carried actor's reparent pose is deterministic even when the scroll
-     * jumped across the seam without rendering the intervening band frames.
-     * @param {string} id
-     * @param {number} t
-     */
-    poseActorAt(id, t) {
-      const rec = actors.get(id);
-      if (!rec) return;
-      const tracks = rec.def.tracks ?? {};
-      if (tracks.position) rec.object.position.fromArray(sampleTrack(tracks.position, t));
-      if (tracks.rotation) {
-        const [x, y, z] = sampleTrack(tracks.rotation, t);
-        rec.object.rotation.set(x * DEG, y * DEG, z * DEG);
-      }
-      if (tracks.scale) rec.object.scale.fromArray(sampleTrack(tracks.scale, t));
-    },
-
-    /** Release a carried actor adopted via {@link adoptActor}; returns it or null. */
-    releaseActor(id) {
-      const record = adopted.get(id);
-      if (!record) return null;
-      adopted.delete(id);
-      group.remove(record.object);
-      return record;
-    },
-
-    /** True while a carried actor with this id is adopted here. */
-    hasAdopted(id) {
-      return adopted.has(id);
-    },
-
-    /** True while this scene owns `id` as one of its authored actors. */
-    hasActor(id) {
-      return actors.has(id);
-    },
-
-    /**
-     * Set a uniform opacity on the scene's meshes (0..1), for transition
-     * fades. Honors each material's authored base opacity/transparency, so a
-     * value of 1 fully restores it. Particle effects are unaffected.
-     * @param {number} alpha
-     */
-    setOpacity(alpha) {
-      for (const mesh of fadeMeshes) {
-        const m = mesh.material;
-        const transparent = m.userData.slashBaseTransparent || alpha < 1;
-        m.opacity = (m.userData.slashBaseOpacity ?? 1) * alpha;
-        m.transparent = transparent;
-        m.depthWrite = !transparent;
-      }
-    },
-
-    /**
      * Advance the scene to progress t.
      * @param {number} t Scene progress in [0,1].
      * @param {number} dt Seconds since last frame (drives clip playback).
      * @param {THREE.PerspectiveCamera} camera
      * @param {{ run: (event: any) => void }} ctx
-     * @param {boolean} [applyCamera] Write the viewpoint to `camera` (default
-     *   true). The transition controller sets this false to blend the camera
-     *   across two sections itself.
      */
-    update(t, dt, camera, ctx, applyCamera = true) {
+    update(t, dt, camera, ctx) {
       for (const { def, object, mixer } of actors.values()) {
         const tracks = def.tracks ?? {};
         if (tracks.position) object.position.fromArray(sampleTrack(tracks.position, t));
@@ -274,25 +153,20 @@ export async function createScenePlayer(
         mixer?.update(dt);
       }
 
-      // Carried-in actors idle in place (they hold their handed-off pose).
-      for (const { mixer } of adopted.values()) mixer?.update(dt);
-
-      // Camera holds the section's viewpoint (a comic-panel shot), unless the
-      // transition controller is blending the camera across two sections.
-      if (applyCamera) {
-        const pose = cameraPose(t);
-        camera.position.set(...pose.position);
-        camera.lookAt(...pose.target);
-        camera.fov = pose.fov;
-        camera.updateProjectionMatrix();
-      }
+      // Camera holds the section's viewpoint (a comic-panel shot).
+      const pose = cameraPose(t);
+      camera.position.set(...pose.position);
+      camera.lookAt(...pose.target);
+      camera.fov = pose.fov;
+      camera.updateProjectionMatrix();
 
       applyVisibility();
       updateLightsAndEffects(t, dt);
 
       for (const event of sceneDoc.events ?? []) {
         if (event.trigger.type === 'progress') {
-          if (lastT < event.trigger.at && t >= event.trigger.at && shouldFire(event)) ctx.run(event);
+          if (lastT < event.trigger.at && t >= event.trigger.at && shouldFire(event))
+            ctx.run(event);
         } else if (event.trigger.type === 'state') {
           // Level-triggered on the progress loop: fires once the state matches.
           if (getState(event.trigger.key) === event.trigger.equals && shouldFire(event))

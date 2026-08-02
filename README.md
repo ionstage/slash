@@ -1,14 +1,21 @@
 # Slash
 
-Web-based authoring tool for scroll-driven 3D story experiences. See `spec.md` for the vision and `PLAN.md` for the implementation plan.
+A scroll-driven 3D story runtime. Scrolling down advances the story; content
+(camera, characters, lighting, effects, audio) is driven in lockstep with the
+scroll position. See `spec.md` for the vision.
+
+**Current scope.** The project has been narrowed to a polished runtime focused
+on scroll behavior and scroll↔content synchronization, supporting a linear
+story path with branching. The authoring editor, seamless transitions
+(crossfade/camera/continuity), horizontal viewpoint switching, AI generation,
+and the export pipeline are deferred; git history preserves them.
 
 ## Structure
 
 - `packages/schema` — content data format: JSON Schemas + dependency-free validator. The AI-facing surface.
-- `packages/runtime` — loads and plays content. Depends on schema + Three.js only; never on the editor.
-- `packages/editor` — authoring UI. Embeds the runtime for its viewport and preview.
+- `packages/runtime` — loads and plays content. Depends on schema + Three.js only.
 - `sample-project/` — hand-written fixture project used to develop and test everything.
-- `docs/ai-authoring.md` — the content model explained for LLMs; usable as a system prompt for agentic authoring. The editor's ✨ AI panel generates scenes (Claude API or built-in offline provider) and 3D assets (Meshy image→3D, experimental).
+- `docs/ai-authoring.md` — the content model explained for LLMs; usable as a system prompt for agentic authoring.
 
 ## Commands
 
@@ -16,7 +23,7 @@ Web-based authoring tool for scroll-driven 3D story experiences. See `spec.md` f
 npm install
 npm run validate      # validate sample-project against the schemas
 npm run dev:runtime   # runtime demo: plays sample-project (scroll to advance)
-npm run dev:editor    # editor shell
-npm run build         # build both apps
+npm run build         # build the runtime
+npm run test          # unit tests
 npm run lint
 ```

@@ -75,7 +75,11 @@ test('migrateScene upgrades v1 camera tracks to a viewpoint, preserving motion a
 });
 
 test('migrateStory bumps v1 stories to v2 (seams default to cut)', () => {
-  const v1 = { formatVersion: 1, start: 'a', scenes: [{ id: 'a', path: 'scenes/a.json', next: null }] };
+  const v1 = {
+    formatVersion: 1,
+    start: 'a',
+    scenes: [{ id: 'a', path: 'scenes/a.json', next: null }],
+  };
   const v2 = migrateStory(v1);
   assert.equal(v2.formatVersion, 2);
   assert.ok(validateDocument('story', v2).valid);
@@ -83,24 +87,19 @@ test('migrateStory bumps v1 stories to v2 (seams default to cut)', () => {
   assert.equal(already, v2); // pass-through
 });
 
-test('story edges accept a continuity transition with carry and offset', () => {
+test('story edges accept an explicit cut transition and reject removed seam types', () => {
   const story = {
     formatVersion: 2,
     start: 'a',
     scenes: [
-      {
-        id: 'a',
-        path: 'scenes/a.json',
-        next: 'b',
-        transition: { type: 'continuity', span: 1.5, carry: ['hero'], offset: [0, -0.3, -16] },
-      },
+      { id: 'a', path: 'scenes/a.json', next: 'b', transition: { type: 'cut' } },
       { id: 'b', path: 'scenes/b.json', next: null },
     ],
   };
   assert.ok(validateDocument('story', story).valid);
 
-  // offset must be a 3-number array; carry must be strings.
-  story.scenes[0].transition.offset = [0, 0];
+  // Banded seam types (crossfade/camera/continuity) are out of scope now.
+  story.scenes[0].transition = { type: 'continuity', carry: ['hero'] };
   assert.ok(!validateDocument('story', story).valid);
 });
 

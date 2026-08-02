@@ -12,9 +12,7 @@ const json = async (path) => JSON.parse(await readFile(root + path, 'utf8'));
 const story = await json('story.json');
 const scenes = {};
 for (const node of story.scenes ?? []) {
-  for (const entry of [node, ...(node.viewpoints ?? [])]) {
-    scenes[entry.id] = await json(entry.path);
-  }
+  scenes[node.id] = await json(node.path);
 }
 
 const result = validateProject({

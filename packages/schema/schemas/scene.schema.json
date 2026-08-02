@@ -21,7 +21,10 @@
       "additionalProperties": false,
       "description": "The environment the scene plays in.",
       "properties": {
-        "assetId": { "type": "string", "description": "Asset id from assets/index.json (type: stage)." },
+        "assetId": {
+          "type": "string",
+          "description": "Asset id from assets/index.json (type: stage)."
+        },
         "transform": { "$ref": "#/$defs/transform" }
       }
     },
@@ -74,8 +77,16 @@
           "description": "The fixed shot: where the camera sits and the point it looks at.",
           "properties": {
             "position": { "$ref": "#/$defs/vec3", "description": "Camera position in meters." },
-            "target": { "$ref": "#/$defs/vec3", "description": "Point the camera looks at, in meters." },
-            "fov": { "type": "number", "minimum": 10, "maximum": 120, "description": "Vertical FOV in degrees. Default 50." }
+            "target": {
+              "$ref": "#/$defs/vec3",
+              "description": "Point the camera looks at, in meters."
+            },
+            "fov": {
+              "type": "number",
+              "minimum": 10,
+              "maximum": 120,
+              "description": "Vertical FOV in degrees. Default 50."
+            }
           }
         },
         "drift": {
@@ -83,9 +94,18 @@
           "additionalProperties": false,
           "description": "Restrained in-section movement: offsets added to the viewpoint over progress t in [0,1]. Keep it subtle — the viewpoint is the shot.",
           "properties": {
-            "position": { "$ref": "#/$defs/vec3Track", "description": "Position offset (meters) added to the viewpoint over t." },
-            "target": { "$ref": "#/$defs/vec3Track", "description": "Look-at offset (meters) added to the viewpoint over t." },
-            "fov": { "$ref": "#/$defs/numberTrack", "description": "FOV offset (degrees) added over t." }
+            "position": {
+              "$ref": "#/$defs/vec3Track",
+              "description": "Position offset (meters) added to the viewpoint over t."
+            },
+            "target": {
+              "$ref": "#/$defs/vec3Track",
+              "description": "Look-at offset (meters) added to the viewpoint over t."
+            },
+            "fov": {
+              "$ref": "#/$defs/numberTrack",
+              "description": "FOV offset (degrees) added over t."
+            }
           }
         }
       }
@@ -96,7 +116,10 @@
       "description": "Scene soundtrack. Both crossfade on scene changes.",
       "properties": {
         "bgm": { "type": "string", "description": "Audio asset id, looped as background music." },
-        "ambient": { "type": "string", "description": "Audio asset id, looped as environment sound." }
+        "ambient": {
+          "type": "string",
+          "description": "Audio asset id, looped as environment sound."
+        }
       }
     },
     "environment": {
@@ -138,7 +161,11 @@
           "intensity": { "type": "number", "minimum": 0 },
           "position": { "$ref": "#/$defs/vec3" },
           "target": { "$ref": "#/$defs/vec3", "description": "Aim point (directional lights)." },
-          "distance": { "type": "number", "minimum": 0, "description": "Point light falloff distance (0 = infinite)." },
+          "distance": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Point light falloff distance (0 = infinite)."
+          },
           "tracks": {
             "type": "object",
             "additionalProperties": false,
@@ -163,10 +190,17 @@
           "preset": { "enum": ["rain", "snow", "sparks", "fireflies"] },
           "enabled": { "type": "boolean", "description": "Initial state; default true." },
           "count": { "type": "integer", "minimum": 1, "maximum": 5000 },
-          "area": { "$ref": "#/$defs/vec3", "description": "Emission box size in meters. Default [20,10,20]." },
+          "area": {
+            "$ref": "#/$defs/vec3",
+            "description": "Emission box size in meters. Default [20,10,20]."
+          },
           "position": { "$ref": "#/$defs/vec3", "description": "Center of the emission box." },
           "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
-          "size": { "type": "number", "exclusiveMinimum": 0, "description": "Particle size in world units." },
+          "size": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Particle size in world units."
+          },
           "tracks": {
             "type": "object",
             "additionalProperties": false,
@@ -205,7 +239,12 @@
                 "additionalProperties": false,
                 "properties": {
                   "type": { "const": "progress" },
-                  "at": { "type": "number", "minimum": 0, "maximum": 1, "description": "Fires when scene progress crosses this value." }
+                  "at": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "Fires when scene progress crosses this value."
+                  }
                 }
               },
               {
@@ -214,7 +253,10 @@
                 "additionalProperties": false,
                 "properties": {
                   "type": { "const": "tap" },
-                  "target": { "type": "string", "description": "Actor id that must be tapped. Omitted = tap anywhere." }
+                  "target": {
+                    "type": "string",
+                    "description": "Actor id that must be tapped. Omitted = tap anywhere."
+                  }
                 }
               },
               {
@@ -223,7 +265,10 @@
                 "additionalProperties": false,
                 "properties": {
                   "type": { "const": "state" },
-                  "key": { "type": "string", "description": "Fires when this flag/counter becomes equal to `equals`." },
+                  "key": {
+                    "type": "string",
+                    "description": "Fires when this flag/counter becomes equal to `equals`."
+                  },
                   "equals": { "type": ["boolean", "number", "string"] }
                 }
               }
@@ -242,7 +287,10 @@
                     "type": { "const": "playAnimation" },
                     "target": { "type": "string", "description": "Actor id." },
                     "clip": { "type": "string", "description": "glTF animation clip name." },
-                    "loop": { "type": "boolean", "description": "Loop the clip instead of playing once." }
+                    "loop": {
+                      "type": "boolean",
+                      "description": "Loop the clip instead of playing once."
+                    }
                   }
                 },
                 {
@@ -251,7 +299,10 @@
                   "additionalProperties": false,
                   "properties": {
                     "type": { "const": "setState" },
-                    "key": { "type": "string", "description": "Flag or counter name from state.json." },
+                    "key": {
+                      "type": "string",
+                      "description": "Flag or counter name from state.json."
+                    },
                     "value": { "type": ["boolean", "number", "string"] }
                   }
                 },
@@ -270,7 +321,10 @@
                   "additionalProperties": false,
                   "properties": {
                     "type": { "const": "log" },
-                    "message": { "type": "string", "description": "Debug action: logs to the console." }
+                    "message": {
+                      "type": "string",
+                      "description": "Debug action: logs to the console."
+                    }
                   }
                 },
                 {
@@ -279,7 +333,10 @@
                   "additionalProperties": false,
                   "properties": {
                     "type": { "const": "playSound" },
-                    "asset": { "type": "string", "description": "Audio asset id to play as a sound effect." },
+                    "asset": {
+                      "type": "string",
+                      "description": "Audio asset id to play as a sound effect."
+                    },
                     "loop": { "type": "boolean" }
                   }
                 },
@@ -299,7 +356,10 @@
                   "additionalProperties": false,
                   "properties": {
                     "type": { "const": "setEffect" },
-                    "target": { "type": "string", "description": "Effect id to enable or disable." },
+                    "target": {
+                      "type": "string",
+                      "description": "Effect id to enable or disable."
+                    },
                     "enabled": { "type": "boolean" }
                   }
                 }

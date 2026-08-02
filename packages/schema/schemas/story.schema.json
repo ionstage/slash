@@ -1,7 +1,7 @@
 {
   "$id": "slash/story",
   "title": "Slash story graph (story.json)",
-  "description": "Ordering and branching of scenes. Vertical progression = following `next` links. Each edge (a `next` link or a branch) may carry a `transition` describing how the seam into the target section plays.",
+  "description": "Ordering and branching of scenes. Vertical progression = following `next` links; `branches` pick state-dependent outcomes. Each seam into the next section is an instant cut in the current scope.",
   "type": "object",
   "required": ["formatVersion", "start", "scenes"],
   "additionalProperties": false,
@@ -51,23 +51,6 @@
                 }
               }
             }
-          },
-          "viewpoints": {
-            "type": "array",
-            "description": "Horizontal variants of this story span (alternative character perspectives). Swiping switches between the base scene and these; vertical progress is shared.",
-            "items": {
-              "type": "object",
-              "required": ["id", "path"],
-              "additionalProperties": false,
-              "properties": {
-                "id": {
-                  "type": "string",
-                  "pattern": "^[a-z][a-z0-9-]*$",
-                  "description": "Scene id of the variant, unique within the story."
-                },
-                "path": { "type": "string", "pattern": "^scenes/[a-z][a-z0-9-]*\\.json$" }
-              }
-            }
           }
         }
       }
@@ -88,34 +71,13 @@
       "type": "object",
       "required": ["type"],
       "additionalProperties": false,
-      "description": "How a boundary between two vertically stacked sections plays. Selected per edge.",
+      "description": "How a boundary between two vertically stacked sections plays. Only `cut` (an instant swap at the seam) is supported in the current scope; the registry is an extension point for future seam styles.",
       "properties": {
         "type": {
-          "enum": ["cut", "crossfade", "camera", "continuity"],
-          "description": "cut = instant swap at the seam. crossfade = the two sections dissolve across the band. camera = the camera glides from one section's viewpoint to the next across the band. continuity = the two stages coexist at an authored offset while carried actors cross the seam and hand off into the next stage."
-        },
-        "span": {
-          "type": "number",
-          "exclusiveMinimum": 0,
-          "maximum": 4,
-          "description": "Scroll units the transition occupies, straddling the seam. Both sections render inside this band. Default depends on type; ignored by `cut`."
-        },
-        "carry": {
-          "type": "array",
-          "items": { "type": "string" },
-          "description": "continuity only: actor ids in the outgoing section that hand off into the incoming section across the seam (instantiated once, reparented — not duplicated). The incoming scene should not also declare these actors."
-        },
-        "offset": {
-          "$ref": "#/$defs/vec3",
-          "description": "continuity only: where the incoming stage sits relative to the outgoing one during the band, so a carried actor's motion reads as continuous. Applied to the incoming group and its camera inside the band; the handoff subtracts it. Default [0,0,0]."
+          "enum": ["cut"],
+          "description": "cut = instant swap at the seam (the default when `transition` is omitted)."
         }
       }
-    },
-    "vec3": {
-      "type": "array",
-      "items": { "type": "number" },
-      "minItems": 3,
-      "maxItems": 3
     }
   }
 }

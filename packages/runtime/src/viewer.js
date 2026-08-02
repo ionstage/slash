@@ -55,13 +55,15 @@ export function createViewer(container, options = {}) {
   // when a post-processing composer issues multiple internal renders.
   renderer.info.autoReset = false;
   const clock = new THREE.Clock();
-  renderer.setAnimationLoop(() => {
-    const dt = clock.getDelta();
+
+  // One frame: advance every ticker by dt, then render.
+  function frame(dt) {
     for (const tick of tickers) tick(dt); // reads last frame's renderer.info
     renderer.info.reset();
     if (renderOverride) renderOverride();
     else renderer.render(scene, camera);
-  });
+  }
+  renderer.setAnimationLoop(() => frame(clock.getDelta()));
 
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) clock.stop();
@@ -86,6 +88,14 @@ export function createViewer(container, options = {}) {
     /** Replace the plain render call (post-processing composer). Pass null to restore. */
     setRenderOverride(fn) {
       renderOverride = fn;
+    },
+    /**
+     * Run a single frame with an explicit dt (seconds), bypassing the
+     * requestAnimationFrame loop. For deterministic tests/tooling — e.g.
+     * driving playback when the tab is backgrounded and rAF is throttled.
+     */
+    step(dt) {
+      frame(dt);
     },
     dispose() {
       observer.disconnect();

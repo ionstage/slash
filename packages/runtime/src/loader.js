@@ -26,19 +26,16 @@ export async function loadProject(baseUrl = '/') {
     json('state.json'),
   ]);
 
-  // Upgrade the story (e.g. adds v2 edge transitions) before validating —
-  // scene fetching walks its entries.
+  // Upgrade the story before validating — scene fetching walks its entries.
   const story = migrateStory(rawStory);
   const storyCheck = validateDocument('story', story);
   if (!storyCheck.valid) throw invalidError('story.json', storyCheck.errors);
 
   const rawScenes = {};
   await Promise.all(
-    story.scenes
-      .flatMap((entry) => [entry, ...(entry.viewpoints ?? [])])
-      .map(async (entry) => {
-        rawScenes[entry.id] = await json(entry.path);
-      }),
+    story.scenes.map(async (entry) => {
+      rawScenes[entry.id] = await json(entry.path);
+    }),
   );
   // Upgrade older scene documents (e.g. v1 camera tracks) before validating.
   const scenes = migrateScenes(rawScenes);

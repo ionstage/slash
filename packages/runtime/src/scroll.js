@@ -17,20 +17,15 @@
  * Total length is dynamic (branching extends the path); the spacer is
  * resized from `getTotalUnits` every frame. Growth only ever appends height
  * *below* the current position, so it never moves the user's scroll.
- * Horizontal swipes (viewpoint switching) are detected here — native scroll
- * owns the vertical axis, so only clearly-horizontal gestures count.
  *
  * The driver is self-contained: it flips the document into a scrollable
  * state (overriding the page's `overflow: hidden` / `touch-action: none`)
- * and restores those styles on dispose. This keeps the demo, the editor
- * preview iframe and exported bundles working from one place.
+ * and restores those styles on dispose.
  *
- * @param {HTMLElement} element Canvas host (pinned) and swipe-input target.
- * @param {{ getTotalUnits: () => number, onSwipe?: (direction: 1 | -1) => void }} options
+ * @param {HTMLElement} element Canvas host (pinned).
+ * @param {{ getTotalUnits: () => number }} options
  */
-export function createScrollDriver(element, { getTotalUnits, onSwipe }) {
-  const SWIPE_MIN_PX = 60;
-
+export function createScrollDriver(element, { getTotalUnits }) {
   const doc = element.ownerDocument;
   const win = doc.defaultView ?? window;
   const scroller = doc.scrollingElement ?? doc.documentElement;
@@ -75,27 +70,6 @@ export function createScrollDriver(element, { getTotalUnits, onSwipe }) {
   }
   syncSpacer();
 
-  // --- horizontal swipe detection (viewpoint switching) ---
-  let touchStart = null; // [x, y] at touchstart
-  function onTouchStart(e) {
-    touchStart = [e.touches[0].clientX, e.touches[0].clientY];
-  }
-  function onTouchEnd(e) {
-    if (!touchStart || !onSwipe) {
-      touchStart = null;
-      return;
-    }
-    const touch = e.changedTouches[0];
-    const dx = touch.clientX - touchStart[0];
-    const dy = touch.clientY - touchStart[1];
-    if (Math.abs(dx) > SWIPE_MIN_PX && Math.abs(dx) > Math.abs(dy) * 1.5) {
-      onSwipe(dx < 0 ? 1 : -1); // swipe left = next viewpoint
-    }
-    touchStart = null;
-  }
-  element.addEventListener('touchstart', onTouchStart, { passive: true });
-  element.addEventListener('touchend', onTouchEnd, { passive: true });
-
   return {
     /**
      * Read the current scroll position. Call once per frame.
@@ -111,7 +85,7 @@ export function createScrollDriver(element, { getTotalUnits, onSwipe }) {
       win.scrollTo(0, scroller.scrollTop + du * viewportHeight());
     },
 
-    /** Jump instantly (scene changes, editor scrubbing, load-gating). */
+    /** Jump instantly (scene changes, load-gating). */
     jumpTo(units) {
       syncSpacer();
       win.scrollTo(0, units * viewportHeight());
@@ -122,8 +96,6 @@ export function createScrollDriver(element, { getTotalUnits, onSwipe }) {
     },
 
     dispose() {
-      element.removeEventListener('touchstart', onTouchStart);
-      element.removeEventListener('touchend', onTouchEnd);
       spacer.remove();
       html.style.overflow = prev.htmlOverflow;
       body.style.overflow = prev.bodyOverflow;

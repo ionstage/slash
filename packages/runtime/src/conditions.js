@@ -34,7 +34,8 @@ export function resolveNext(storyEntry, get) {
  */
 export function resolveNextEdge(storyEntry, get) {
   for (const branch of storyEntry.branches ?? []) {
-    if (evalCondition(branch.when, get)) return { next: branch.next, transition: branch.transition };
+    if (evalCondition(branch.when, get))
+      return { next: branch.next, transition: branch.transition };
   }
   return { next: storyEntry.next ?? null, transition: storyEntry.transition };
 }

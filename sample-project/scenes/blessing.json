@@ -33,8 +33,7 @@
       "count": 220,
       "color": "#ffd77a",
       "area": [4, 5, 4],
-      "position": [0, 2.5, -1],
-      "enabled": false
+      "position": [0, 2.5, -1]
     }
   ],
   "actors": [
@@ -67,24 +66,5 @@
         { "t": 1, "value": [0, 1, 0], "easing": "easeInOut" }
       ]
     }
-  },
-  "events": [
-    {
-      "id": "blessed",
-      "trigger": { "type": "progress", "at": 0.2 },
-      "actions": [
-        { "type": "log", "message": "A gentle light blesses the traveler." },
-        { "type": "setEffect", "target": "blessing-sparks", "enabled": true }
-      ]
-    },
-    {
-      "id": "return-to-meadow",
-      "trigger": { "type": "tap", "target": "spirit" },
-      "once": false,
-      "actions": [
-        { "type": "log", "message": "The spirit carries the traveler back to the meadow." },
-        { "type": "gotoScene", "scene": "meadow" }
-      ]
-    }
-  ]
+  }
 }

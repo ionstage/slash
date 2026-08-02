@@ -80,12 +80,7 @@ export function createScrollDriver(element, { getTotalUnits }) {
       return positionUnits();
     },
 
-    /** Advance by du units (Playback Mode's auto-play) via a native scroll. */
-    advance(du) {
-      win.scrollTo(0, scroller.scrollTop + du * viewportHeight());
-    },
-
-    /** Jump instantly (scene changes, load-gating). */
+    /** Jump instantly (load-gating). */
     jumpTo(units) {
       syncSpacer();
       win.scrollTo(0, units * viewportHeight());

@@ -20,7 +20,6 @@ const result = validateProject({
   story,
   scenes,
   assetIndex: await json('assets/index.json'),
-  state: await json('state.json'),
 });
 
 if (result.valid) {

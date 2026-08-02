@@ -1,7 +1,7 @@
 {
   "$id": "slash/scene",
   "title": "Slash scene (scenes/*.json)",
-  "description": "One scene: a stage, actors placed on it, camera direction, animation tracks and events, all driven by the scene's progress axis t in [0,1].",
+  "description": "One scene: a stage, actors placed on it, a camera viewpoint, lights and effects, all driven by the scene's progress axis t in [0,1]. Scenes are passive — scrolling is the only input.",
   "type": "object",
   "required": ["formatVersion", "id", "stage", "camera"],
   "additionalProperties": false,
@@ -39,17 +39,13 @@
           "id": {
             "type": "string",
             "pattern": "^[a-z][a-z0-9-]*$",
-            "description": "Scene-local actor id, referenced by tracks and events."
+            "description": "Scene-local actor id, referenced by tracks."
           },
           "assetId": { "type": "string" },
           "transform": { "$ref": "#/$defs/transform" },
           "idleClip": {
             "type": "string",
             "description": "Name of a glTF animation clip to loop while the actor is idle."
-          },
-          "visibleWhen": {
-            "$ref": "#/$defs/condition",
-            "description": "Hidden element: the actor is only visible while this state condition holds (re-evaluated live)."
           },
           "tracks": {
             "type": "object",
@@ -107,18 +103,6 @@
               "description": "FOV offset (degrees) added over t."
             }
           }
-        }
-      }
-    },
-    "audio": {
-      "type": "object",
-      "additionalProperties": false,
-      "description": "Scene soundtrack. Both crossfade on scene changes.",
-      "properties": {
-        "bgm": { "type": "string", "description": "Audio asset id, looped as background music." },
-        "ambient": {
-          "type": "string",
-          "description": "Audio asset id, looped as environment sound."
         }
       }
     },
@@ -180,7 +164,7 @@
     },
     "effects": {
       "type": "array",
-      "description": "Ambient particle effects, driven by presets and toggled by events (setEffect).",
+      "description": "Ambient particle effects, driven by presets and animated over scene progress.",
       "items": {
         "type": "object",
         "required": ["id", "preset"],
@@ -188,7 +172,10 @@
         "properties": {
           "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
           "preset": { "enum": ["rain", "snow", "sparks", "fireflies"] },
-          "enabled": { "type": "boolean", "description": "Initial state; default true." },
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether the effect renders; default true."
+          },
           "count": { "type": "integer", "minimum": 1, "maximum": 5000 },
           "area": {
             "$ref": "#/$defs/vec3",
@@ -213,174 +200,9 @@
           }
         }
       }
-    },
-    "events": {
-      "type": "array",
-      "description": "Data-driven events: a trigger fires its actions.",
-      "items": {
-        "type": "object",
-        "required": ["id", "trigger", "actions"],
-        "additionalProperties": false,
-        "properties": {
-          "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
-          "once": {
-            "type": "boolean",
-            "description": "If true (default), the event fires only the first time its trigger matches."
-          },
-          "when": {
-            "$ref": "#/$defs/condition",
-            "description": "Extra gate: the trigger only fires while this state condition holds (checked without consuming `once`)."
-          },
-          "trigger": {
-            "oneOf": [
-              {
-                "type": "object",
-                "required": ["type", "at"],
-                "additionalProperties": false,
-                "properties": {
-                  "type": { "const": "progress" },
-                  "at": {
-                    "type": "number",
-                    "minimum": 0,
-                    "maximum": 1,
-                    "description": "Fires when scene progress crosses this value."
-                  }
-                }
-              },
-              {
-                "type": "object",
-                "required": ["type"],
-                "additionalProperties": false,
-                "properties": {
-                  "type": { "const": "tap" },
-                  "target": {
-                    "type": "string",
-                    "description": "Actor id that must be tapped. Omitted = tap anywhere."
-                  }
-                }
-              },
-              {
-                "type": "object",
-                "required": ["type", "key", "equals"],
-                "additionalProperties": false,
-                "properties": {
-                  "type": { "const": "state" },
-                  "key": {
-                    "type": "string",
-                    "description": "Fires when this flag/counter becomes equal to `equals`."
-                  },
-                  "equals": { "type": ["boolean", "number", "string"] }
-                }
-              }
-            ]
-          },
-          "actions": {
-            "type": "array",
-            "minItems": 1,
-            "items": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "required": ["type", "target", "clip"],
-                  "additionalProperties": false,
-                  "properties": {
-                    "type": { "const": "playAnimation" },
-                    "target": { "type": "string", "description": "Actor id." },
-                    "clip": { "type": "string", "description": "glTF animation clip name." },
-                    "loop": {
-                      "type": "boolean",
-                      "description": "Loop the clip instead of playing once."
-                    }
-                  }
-                },
-                {
-                  "type": "object",
-                  "required": ["type", "key", "value"],
-                  "additionalProperties": false,
-                  "properties": {
-                    "type": { "const": "setState" },
-                    "key": {
-                      "type": "string",
-                      "description": "Flag or counter name from state.json."
-                    },
-                    "value": { "type": ["boolean", "number", "string"] }
-                  }
-                },
-                {
-                  "type": "object",
-                  "required": ["type", "scene"],
-                  "additionalProperties": false,
-                  "properties": {
-                    "type": { "const": "gotoScene" },
-                    "scene": { "type": "string", "description": "Scene id to jump to." }
-                  }
-                },
-                {
-                  "type": "object",
-                  "required": ["type", "message"],
-                  "additionalProperties": false,
-                  "properties": {
-                    "type": { "const": "log" },
-                    "message": {
-                      "type": "string",
-                      "description": "Debug action: logs to the console."
-                    }
-                  }
-                },
-                {
-                  "type": "object",
-                  "required": ["type", "asset"],
-                  "additionalProperties": false,
-                  "properties": {
-                    "type": { "const": "playSound" },
-                    "asset": {
-                      "type": "string",
-                      "description": "Audio asset id to play as a sound effect."
-                    },
-                    "loop": { "type": "boolean" }
-                  }
-                },
-                {
-                  "type": "object",
-                  "required": ["type", "target", "visible"],
-                  "additionalProperties": false,
-                  "properties": {
-                    "type": { "const": "setVisible" },
-                    "target": { "type": "string", "description": "Actor id to show or hide." },
-                    "visible": { "type": "boolean" }
-                  }
-                },
-                {
-                  "type": "object",
-                  "required": ["type", "target", "enabled"],
-                  "additionalProperties": false,
-                  "properties": {
-                    "type": { "const": "setEffect" },
-                    "target": {
-                      "type": "string",
-                      "description": "Effect id to enable or disable."
-                    },
-                    "enabled": { "type": "boolean" }
-                  }
-                }
-              ]
-            }
-          }
-        }
-      }
     }
   },
   "$defs": {
-    "condition": {
-      "type": "object",
-      "required": ["key", "equals"],
-      "additionalProperties": false,
-      "description": "State condition: true when the flag/counter `key` currently equals `equals`.",
-      "properties": {
-        "key": { "type": "string" },
-        "equals": { "type": ["boolean", "number", "string"] }
-      }
-    },
     "transform": {
       "type": "object",
       "additionalProperties": false,

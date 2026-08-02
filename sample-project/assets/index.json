@@ -47,23 +47,7 @@
       "type": "character",
       "kind": "primitive",
       "primitive": { "shape": "sphere", "size": [0.7, 0.7, 0.7], "color": "#9fd8ff" },
-      "tags": ["shrine", "spirit", "hidden"]
-    },
-    {
-      "id": "chime",
-      "name": "Bell Chime",
-      "type": "audio",
-      "kind": "audio",
-      "source": "audio/chime.wav",
-      "tags": ["sfx"]
-    },
-    {
-      "id": "wind",
-      "name": "Meadow Wind",
-      "type": "audio",
-      "kind": "audio",
-      "source": "audio/wind.wav",
-      "tags": ["ambient"]
+      "tags": ["shrine", "spirit"]
     }
   ]
 }

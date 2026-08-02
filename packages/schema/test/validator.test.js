@@ -23,7 +23,6 @@ const minimalDocs = () => ({
     formatVersion: 1,
     assets: [{ id: 'ground', type: 'stage', kind: 'primitive', primitive: { shape: 'plane' } }],
   },
-  state: { formatVersion: 1 },
 });
 
 test('accepts a minimal valid project', () => {
@@ -74,7 +73,7 @@ test('migrateScene upgrades v1 camera tracks to a viewpoint, preserving motion a
   assert.equal(migrateScene(v2), v2);
 });
 
-test('migrateStory bumps v1 stories to v2 (seams default to cut)', () => {
+test('migrateStory bumps v1 stories to v2', () => {
   const v1 = {
     formatVersion: 1,
     start: 'a',
@@ -87,33 +86,33 @@ test('migrateStory bumps v1 stories to v2 (seams default to cut)', () => {
   assert.equal(already, v2); // pass-through
 });
 
-test('story edges accept an explicit cut transition and reject removed seam types', () => {
+test('story is a linear chain: `branches` and `transition` are rejected', () => {
   const story = {
     formatVersion: 2,
     start: 'a',
     scenes: [
-      { id: 'a', path: 'scenes/a.json', next: 'b', transition: { type: 'cut' } },
+      { id: 'a', path: 'scenes/a.json', next: 'b' },
       { id: 'b', path: 'scenes/b.json', next: null },
     ],
   };
   assert.ok(validateDocument('story', story).valid);
 
-  // Banded seam types (crossfade/camera/continuity) are out of scope now.
-  story.scenes[0].transition = { type: 'continuity', carry: ['hero'] };
+  // Branching and per-edge transitions were removed from the format.
+  story.scenes[0].branches = [{ when: { key: 'x', equals: true }, next: 'b' }];
+  assert.ok(!validateDocument('story', story).valid);
+  delete story.scenes[0].branches;
+  story.scenes[0].transition = { type: 'cut' };
   assert.ok(!validateDocument('story', story).valid);
 });
 
-test('oneOf rejects an action matching no variant', () => {
+test('scenes are passive: `events` and `audio` are rejected', () => {
   const scene = minimalScene('a');
-  scene.events = [
-    {
-      id: 'e',
-      trigger: { type: 'progress', at: 0.5 },
-      actions: [{ type: 'explode' }],
-    },
-  ];
-  const result = validateDocument('scene', scene);
-  assert.ok(!result.valid);
+  scene.events = [{ id: 'e', trigger: { type: 'progress', at: 0.5 }, actions: [] }];
+  assert.ok(!validateDocument('scene', scene).valid);
+
+  const scene2 = minimalScene('a');
+  scene2.audio = { ambient: 'wind' };
+  assert.ok(!validateDocument('scene', scene2).valid);
 });
 
 test('cross-reference checks catch dangling ids', () => {
@@ -125,18 +124,4 @@ test('cross-reference checks catch dangling ids', () => {
   const messages = result.errors.map((e) => `${e.path}: ${e.message}`).join('\n');
   assert.match(messages, /unknown scene "nowhere"/);
   assert.match(messages, /unknown asset "ghost"/);
-});
-
-test('cross-reference checks catch unknown state keys in setState actions', () => {
-  const docs = minimalDocs();
-  docs.scenes.a.events = [
-    {
-      id: 'e',
-      trigger: { type: 'progress', at: 0.5 },
-      actions: [{ type: 'setState', key: 'missing', value: true }],
-    },
-  ];
-  const result = validateProject(docs);
-  assert.ok(!result.valid);
-  assert.match(result.errors[0].message, /unknown state key/);
 });

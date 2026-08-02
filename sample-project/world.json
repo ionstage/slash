@@ -1,0 +1,159 @@
+{
+  "formatVersion": 3,
+  "id": "moonlit-descent",
+  "name": "The Moonlit Descent",
+  "length": 14,
+  "travelPerUnit": 6,
+  "camera": {
+    "offset": [0, 2.4, 9.5],
+    "target": [0, 1.2, -3],
+    "fov": 46,
+    "drift": {
+      "target": [
+        { "t": 0, "value": [0, 0, 0] },
+        { "t": 0.5, "value": [0.6, 0, -1.5], "easing": "easeInOut" },
+        { "t": 1, "value": [0, 0, -2.5], "easing": "easeInOut" }
+      ]
+    }
+  },
+  "layers": [
+    { "id": "sky", "name": "Sky", "parallax": 0.05 },
+    { "id": "far", "name": "Far ridges", "parallax": 0.28 },
+    { "id": "mid", "name": "Wooded hills", "parallax": 0.6 },
+    { "id": "world", "name": "The path", "parallax": 1 }
+  ],
+  "objects": [
+    {
+      "id": "moon",
+      "assetId": "moon",
+      "layer": "sky",
+      "worldY": 14,
+      "transform": { "position": [7, 6, -30], "scale": 1.8 }
+    },
+
+    { "id": "ridge-a", "assetId": "ridge", "layer": "far", "worldY": 2, "transform": { "position": [-8, 0, -42] } },
+    { "id": "ridge-b", "assetId": "ridge", "layer": "far", "worldY": -34, "transform": { "position": [10, 0, -46], "scale": [0.8, 1.2, 1] } },
+    { "id": "ridge-c", "assetId": "ridge", "layer": "far", "worldY": -70, "transform": { "position": [-6, 0, -44] } },
+
+    { "id": "hill-a", "assetId": "hill", "layer": "mid", "worldY": 0, "transform": { "position": [-12, 0, -16] } },
+    { "id": "hill-b", "assetId": "hill", "layer": "mid", "worldY": -20, "transform": { "position": [11, 0, -18] } },
+    { "id": "hill-c", "assetId": "hill", "layer": "mid", "worldY": -44, "transform": { "position": [-10, 0, -15] } },
+    { "id": "hill-d", "assetId": "hill", "layer": "mid", "worldY": -68, "transform": { "position": [12, 0, -17] } },
+
+    { "id": "meadow", "assetId": "meadow-stage", "layer": "world", "worldY": 0, "transform": { "position": [0, 0, -4], "scale": 0.5 } },
+    { "id": "forest-floor", "assetId": "meadow-stage", "layer": "world", "worldY": -18, "transform": { "position": [0, 0, -4], "scale": 0.5 } },
+    { "id": "cliff-ledge", "assetId": "shrine-stage", "layer": "world", "worldY": -36, "transform": { "position": [0, 0, -4], "scale": 0.8 } },
+    { "id": "shrine-terrace", "assetId": "shrine-stage", "layer": "world", "worldY": -54, "transform": { "position": [0, 0, -4] } },
+    { "id": "valley-floor", "assetId": "meadow-stage", "layer": "world", "worldY": -78, "transform": { "position": [0, 0, -4], "scale": 0.5 } },
+
+    { "id": "old-tree", "assetId": "tree", "layer": "world", "worldY": 0, "transform": { "position": [-4.5, 0, -6], "scale": 1.5 } },
+    { "id": "tree-2", "assetId": "tree", "layer": "world", "worldY": -18, "transform": { "position": [4, 0, -7], "scale": 1.3 } },
+    { "id": "tree-3", "assetId": "tree", "layer": "world", "worldY": -18, "transform": { "position": [-5.5, 0, -9], "scale": 1.7 } },
+
+    { "id": "pillar-l", "assetId": "pillar", "layer": "world", "worldY": -54, "transform": { "position": [-2.5, 0, -4], "scale": [1, 1.4, 1] } },
+    { "id": "pillar-r", "assetId": "pillar", "layer": "world", "worldY": -54, "transform": { "position": [2.5, 0, -4], "scale": [1, 1.4, 1] } },
+    { "id": "bell", "assetId": "bell", "layer": "world", "worldY": -54, "transform": { "position": [0, 3, -4] } },
+
+    { "id": "spirit-1", "assetId": "spirit", "layer": "world", "worldY": -78, "transform": { "position": [-2, 1.2, -5] } },
+    { "id": "spirit-2", "assetId": "spirit", "layer": "world", "worldY": -78, "transform": { "position": [2.5, 1.6, -6], "scale": 0.8 } }
+  ],
+  "actors": [
+    {
+      "id": "traveler",
+      "assetId": "traveler",
+      "follow": "camera",
+      "transform": { "position": [0, 0, 0], "rotation": [0, 180, 0] },
+      "tracks": {
+        "position": [
+          { "t": 0, "value": [0, 0, 0] },
+          { "t": 0.2, "value": [0.5, 0.15, 0], "easing": "easeInOut" },
+          { "t": 0.4, "value": [-0.3, 0, 0], "easing": "easeInOut" },
+          { "t": 0.6, "value": [0.4, 0.15, 0], "easing": "easeInOut" },
+          { "t": 0.8, "value": [-0.2, 0, 0], "easing": "easeInOut" },
+          { "t": 1, "value": [0, 0.1, 0], "easing": "easeInOut" }
+        ]
+      }
+    },
+    {
+      "id": "companion",
+      "assetId": "spirit",
+      "follow": "camera",
+      "transform": { "position": [1.8, 1.4, -1], "scale": 0.6 },
+      "tracks": {
+        "position": [
+          { "t": 0, "value": [1.8, 1.4, -1] },
+          { "t": 0.5, "value": [1.1, 2.0, -1.6], "easing": "easeInOut" },
+          { "t": 1, "value": [2.1, 1.3, -0.8], "easing": "easeInOut" }
+        ]
+      }
+    }
+  ],
+  "environment": {
+    "fog": {
+      "color": [
+        { "t": 0, "value": [0.1, 0.1, 0.18] },
+        { "t": 1, "value": [0.03, 0.03, 0.09], "easing": "easeInOut" }
+      ],
+      "near": [
+        { "t": 0, "value": 8 },
+        { "t": 1, "value": 5 }
+      ],
+      "far": [
+        { "t": 0, "value": 60 },
+        { "t": 1, "value": 42, "easing": "easeInOut" }
+      ]
+    },
+    "lights": [
+      {
+        "id": "sky",
+        "type": "ambient",
+        "color": [0.45, 0.45, 0.62],
+        "intensity": 0.9,
+        "tracks": {
+          "intensity": [
+            { "t": 0, "value": 0.9 },
+            { "t": 1, "value": 0.55, "easing": "easeInOut" }
+          ],
+          "color": [
+            { "t": 0, "value": [0.45, 0.45, 0.62] },
+            { "t": 1, "value": [0.3, 0.33, 0.5], "easing": "easeInOut" }
+          ]
+        }
+      },
+      {
+        "id": "moonlight",
+        "type": "directional",
+        "color": [1, 0.82, 0.55],
+        "intensity": 2,
+        "position": [6, 10, 4],
+        "target": [0, 0, 0],
+        "follow": "camera",
+        "tracks": {
+          "intensity": [
+            { "t": 0, "value": 2 },
+            { "t": 1, "value": 0.7, "easing": "easeInOut" }
+          ],
+          "color": [
+            { "t": 0, "value": [1, 0.82, 0.55] },
+            { "t": 1, "value": [0.55, 0.62, 0.95], "easing": "easeInOut" }
+          ]
+        }
+      }
+    ],
+    "effects": [
+      {
+        "id": "fireflies",
+        "preset": "fireflies",
+        "count": 90,
+        "area": [34, 12, 44],
+        "position": [0, 2, -6],
+        "tracks": {
+          "intensity": [
+            { "t": 0, "value": 0.15 },
+            { "t": 1, "value": 1, "easing": "easeIn" }
+          ]
+        }
+      }
+    ]
+  }
+}

@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
-  "id": "moonlit-shrine",
-  "title": "The Moonlit Shrine",
-  "description": "Sample fixture: a traveler crosses a meadow at dusk and discovers a small shrine.",
+  "id": "moonlit-descent",
+  "title": "The Moonlit Descent",
+  "description": "Sample fixture: a traveler descends a hillside path at dusk — the world streams past with parallax while the traveler stays framed, arriving at a moonlit shrine and valley.",
   "renderStyle": {
     "style": "toon",
     "background": "#1a1a2e",

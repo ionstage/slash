@@ -1,9 +1,0 @@
-{
-  "formatVersion": 2,
-  "start": "meadow",
-  "scenes": [
-    { "id": "meadow", "path": "scenes/meadow.json", "next": "shrine" },
-    { "id": "shrine", "path": "scenes/shrine.json", "next": "blessing" },
-    { "id": "blessing", "path": "scenes/blessing.json", "next": null }
-  ]
-}

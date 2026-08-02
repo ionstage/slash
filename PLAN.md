@@ -371,3 +371,73 @@ blessing`); scenes strip `audio`, `events`, `visibleWhen`; the
   precomputing — smaller diff, same behavior.
 - **Effects toggle loss** is the one behavioral change — any effect that was
   `enabled: false` waiting on `setEffect` must flip on (see the sample audit).
+
+---
+
+# W-series — Continuous vertical world (2026-08)
+
+The scroll model was rethought (confirmed with the owner). The S-series played
+a **slideshow of held camera panels**, one scene at a time with instant cuts —
+it did not feel like scrolling. It is replaced by **one continuous vertical
+world**: scrolling down dollies the camera through a world fixed in space, so
+environments stream past with **parallax** while characters **persist in frame**
+the whole scroll — an attraction where the stage moves and the characters travel
+through it.
+
+Confirmed decisions:
+
+- **Move the camera down** (world fixed), not the world up. Rationale in
+  `spec.md`: real perspective parallax for free + stable authoring coordinates.
+  Persistent actors ride a rig that descends with the camera.
+- **Single freeform track**: one `world.json` (no scenes/stations). Objects are
+  placed at absolute `worldY` inside parallax layers.
+- Persistent characters **travel through the world** (`follow: "camera"`),
+  staying framed while landmarks stream past.
+
+## The model
+
+One scalar still drives everything: `units` (viewport-heights). Derived in the
+pure module `runtime/src/world-map.js` (unit-tested, no Three.js):
+
+```
+travel = units * travelPerUnit          camera descent in metres
+g      = clamp(units / length, 0, 1)    global progress for all tracks
+camera = travelPoint(−travel) + offset  camera dolly (+ drift over g)
+layerY = −(1 − parallax) * travel        per-layer parallax offset
+rigY   = −travel                          traveler rig rides the camera
+```
+
+`layerY` is chosen so a layer's apparent rise-rate equals its `parallax`
+(`1` = full/world-fixed, `→0` = rides the camera).
+
+## Changes by area
+
+- **schema**: new `schemas/world.schema.json` (`formatVersion: 3`); removed
+  `story`/`scene` schemas. `index.js` registers `world`, `FORMAT_VERSION = 3`,
+  `migrateWorld` stub. `validateProject({project, world, assetIndex})` rewritten
+  (layer/object/actor/light/effect cross-refs).
+- **runtime**: new `world-map.js` + `world-player.js` (layers, traveler rig,
+  objects at `worldY`, camera-follow actors, continuous fog/lights/effects).
+  `loader.js` loads `world.json`; `index.js`/`demo.js` use `createWorldPlayer`.
+  Removed `player.js`, `scene-player.js`, `transitions.js`. HUD `?sync` overlay
+  now reports `units`, `g`, `travel`, `camera.y`, and per-layer offsets.
+- **sample** (`sample-project/world.json`, "The Moonlit Descent"): 4 parallax
+  layers, landmarks at known depths (tree/forest/cliff/shrine/valley), two
+  camera-following actors (traveler + companion), continuous dusk→night
+  atmosphere. Added `ridge`/`hill`/`moon`/`pillar` primitives.
+- **tests**: `world-map.test.js` (mapping formulas) + rewritten
+  `validator.test.js`; `validate-sample.js` validates `world.json`.
+
+## Verified
+
+`npm test` (19), `npm run validate`, `npm run lint`, `npm run build` all green;
+browser drive of the full descent confirmed continuous travel, per-layer
+parallax divergence (HUD offsets match `−(1−parallax)·travel` exactly), the
+traveler framed throughout while landmarks stream past, and `units`/`travel`
+reaching the ends exactly (14/14, travel 84 m).
+
+## Deferred
+
+- **Origin rebasing** for very long worlds (camera coords grow); fine at sample
+  scale.
+- **Lazy streaming by depth** — the whole world loads up front (small sample).

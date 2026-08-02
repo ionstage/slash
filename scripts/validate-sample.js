@@ -9,21 +9,18 @@ import { validateProject } from '@slash/schema';
 const root = fileURLToPath(new URL('../sample-project/', import.meta.url));
 const json = async (path) => JSON.parse(await readFile(root + path, 'utf8'));
 
-const story = await json('story.json');
-const scenes = {};
-for (const node of story.scenes ?? []) {
-  scenes[node.id] = await json(node.path);
-}
+const world = await json('world.json');
 
 const result = validateProject({
   project: await json('project.json'),
-  story,
-  scenes,
+  world,
   assetIndex: await json('assets/index.json'),
 });
 
 if (result.valid) {
-  console.log(`sample-project OK (${Object.keys(scenes).length} scenes)`);
+  const objects = (world.objects ?? []).length;
+  const actors = (world.actors ?? []).length;
+  console.log(`sample-project OK (${world.layers.length} layers, ${objects} objects, ${actors} actors)`);
 } else {
   console.error(`sample-project has ${result.errors.length} error(s):`);
   for (const e of result.errors) console.error(`  ${e.path}: ${e.message}`);

@@ -4,15 +4,14 @@
 
 > **Current scope (2026-08).** This document describes the full vision. The
 > current build is a deliberately narrowed **runtime** focused on scroll
-> behavior and scroll↔content synchronization, playing a **single linear story
-> path**. Scenes are **passive**: vertical scroll is the only input. Deferred
-> for now (preserved in git history): the authoring **Editor**, seamless
-> boundary transitions (crossfade / camera move / continuity), horizontal
-> **viewpoint** switching (swipe to switch characters — allowed by the vision,
-> not yet built), story **branching**, the **State** and **Event** systems,
-> **Audio**, automatic **Playback Mode**, **AI** generation, and the
-> **export/optimization** pipeline. Sections below that describe those systems
-> are vision, not the current build.
+> behavior and scroll↔world synchronization, playing **one continuous vertical
+> world** (see _Connected Stages_ below). The world is **passive**: vertical
+> scroll is the only input. Deferred for now (preserved in git history): the
+> authoring **Editor**, horizontal **viewpoint** switching (swipe to switch
+> characters — allowed by the vision, not yet built), story **branching**, the
+> **State** and **Event** systems, **Audio**, automatic **Playback Mode**,
+> **AI** generation, and the **export/optimization** pipeline. Sections below
+> that describe those systems are vision, not the current build.
 
 ## Overview
 
@@ -228,28 +227,57 @@ Examples:
 
 ## Connected Stages
 
-Stages form a vertically connected sequence.
-Scrolling down moves through the sequence.
+The world is **one continuous vertical space**, not a sequence of framed panels.
+Scrolling down descends a single axis; environments stream past continuously,
+with **parallax depth**, and there are no boundaries or cuts. Atmosphere,
+framing and parallax are all continuous over global progress.
 
-Some boundaries are independent.
-Others are seamless: objects or characters continue from one stage into the next.
+The camera **descends through a world that is fixed in space**. Content is
+placed at an absolute vertical position (`worldY`) inside a **parallax layer**;
+the descent reveals it. This reads like scrolling a web page — the world moves
+up past the viewer — while feeling like an **attraction**: the stage streams by
+and the characters travel through it.
 
-Each boundary's transition is author-selected, per boundary:
+### Move the camera vs. move the world
 
-- Cut — instant change
-- Cross-fade — the two stages dissolve across the boundary
-- Camera move — the camera glides from one stage's viewpoint to the next
-- Continuity — the stages coexist at an authored offset while carried characters cross the seam
+Two ways to make the world stream past. For a single rigid world they are
+equivalent (relative translation); they diverge once you add **parallax** and
+**persistent characters** — the two things this runtime is built around.
 
-## Camera Viewpoints
+- **Move the camera down (world fixed)** — the chosen approach.
+  - **Real perspective parallax for free**: near objects stream past faster than
+    far ones automatically; per-layer factors add deliberate depth on top.
+  - Objects keep **true, stable world coordinates** → WYSIWYG authoring and the
+    cleanest AI-generation surface; matches the diorama/attraction mental model.
+  - Only the camera transform changes per frame; persistent characters ride a
+    rig that descends with it.
+  - Cost: camera coordinates grow far from the origin on very long worlds
+    (mitigated by origin rebasing — deferred; irrelevant at sample scale).
+- **Move the world up (camera fixed)** — rejected.
+  - A uniform world translation gives **no parallax**; every layer's depth must
+    be faked by hand.
+  - Persistent characters must be pulled out of / counter-translated against the
+    moving world.
+  - Its one edge (a perfectly static camera for post/shadows) does not outweigh
+    losing free parallax and stable authoring coordinates.
 
-Each stage is framed from a single intended viewpoint.
-The viewpoint is a fixed shot — like a comic panel — of a fully realized 3D stage.
-A stage only needs to look correct from its own viewpoint.
+### Parallax layers
 
-Optional restrained drift adds subtle in-stage camera motion.
+Content lives in ordered layers, each with a `parallax` factor: `1` = true
+world space (full parallax); `→ 0` = rides the camera and barely moves (distant
+sky and ridges). Layers give art-directed depth on top of natural perspective.
 
-Characters move _through_ the connected environments with restrained, idle-led motion.
+## Camera and characters
+
+The camera is a **dolly rig** that descends with scroll: an authored offset and
+look-at relative to the descending point, plus optional restrained `drift`.
+
+Characters **persist through the whole descent**. A character set to follow the
+camera rides down with it, staying framed while the world streams past — a
+protagonist travelling _through_ the connected environments with restrained,
+idle-led motion (sway, bob, drift). Characters anchored in the world instead
+are passed and left behind. A stage only needs to look correct across the band
+of the descent where it is on screen.
 
 ---
 

@@ -32,17 +32,6 @@
   ],
   "actors": [
     {
-      "id": "traveler",
-      "assetId": "traveler",
-      "transform": { "position": [0, 0, 4], "rotation": [0, 180, 0] },
-      "tracks": {
-        "position": [
-          { "t": 0, "value": [0, 0, 4] },
-          { "t": 0.7, "value": [0, 0, 0.5], "easing": "easeInOut" }
-        ]
-      }
-    },
-    {
       "id": "shrine-bell",
       "assetId": "bell",
       "transform": { "position": [0, 2.2, -1] }

@@ -91,16 +91,31 @@
       "description": "How a boundary between two vertically stacked sections plays. Selected per edge.",
       "properties": {
         "type": {
-          "enum": ["cut", "crossfade", "camera"],
-          "description": "cut = instant swap at the seam. crossfade = the two sections dissolve across the band. camera = the camera glides from one section's viewpoint to the next across the band."
+          "enum": ["cut", "crossfade", "camera", "continuity"],
+          "description": "cut = instant swap at the seam. crossfade = the two sections dissolve across the band. camera = the camera glides from one section's viewpoint to the next across the band. continuity = the two stages coexist at an authored offset while carried actors cross the seam and hand off into the next stage."
         },
         "span": {
           "type": "number",
           "exclusiveMinimum": 0,
           "maximum": 4,
           "description": "Scroll units the transition occupies, straddling the seam. Both sections render inside this band. Default depends on type; ignored by `cut`."
+        },
+        "carry": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "continuity only: actor ids in the outgoing section that hand off into the incoming section across the seam (instantiated once, reparented — not duplicated). The incoming scene should not also declare these actors."
+        },
+        "offset": {
+          "$ref": "#/$defs/vec3",
+          "description": "continuity only: where the incoming stage sits relative to the outgoing one during the band, so a carried actor's motion reads as continuous. Applied to the incoming group and its camera inside the band; the handoff subtracts it. Default [0,0,0]."
         }
       }
+    },
+    "vec3": {
+      "type": "array",
+      "items": { "type": "number" },
+      "minItems": 3,
+      "maxItems": 3
     }
   }
 }

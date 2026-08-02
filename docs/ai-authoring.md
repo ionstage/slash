@@ -40,6 +40,14 @@ effect targets). Generated content must pass this before it is usable.
   evaluated before `next`. `viewpoints` are horizontal variants of a node
   (swipe switches; vertical progress is shared). `gotoScene` enables loops
   and revisits.
+- **Transitions** attach to an edge (a `next` link or a branch) as
+  `transition: {type, span}` and decide how the seam into the next section
+  plays. `cut` (default) is an instant swap; `crossfade` dissolves the two
+  stages across a band; `camera` glides from one viewpoint to the next;
+  `continuity` keeps both stages live at an authored `offset` while listed
+  `carry` actors walk across the seam and hand off into the next stage —
+  authored once, not duplicated (omit those actors from the incoming scene).
+  `span` is the band width in viewport-heights.
 - **State** (`state.json`): declare every flag/counter an event references.
   `visibleWhen` on an actor makes it a hidden element tied to state.
 - **Atmosphere**: per-scene `lights` (ambient/directional/point, with
@@ -59,6 +67,10 @@ effect targets). Generated content must pass this before it is usable.
 4. Reference only state keys declared in `state.json` (add new ones there).
 5. Keep scenes scannable: 2–6 actors, one clear camera viewpoint, events
    that advance the story. Atmosphere (fog, lights, one effect) over clutter.
+6. Restrained character motion: characters move *through* the stage led by
+   idle animation and gentle position tracks — a slow walk, a turn, a drift —
+   not busy per-actor choreography. Let the held viewpoint and `camera.drift`
+   carry the shot; a carried (`continuity`) actor arrives and simply stands.
 
 ## Generation envelope (editor AI panel)
 

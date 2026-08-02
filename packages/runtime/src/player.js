@@ -181,6 +181,9 @@ export async function createPlayer(container, bundle, { persist = true } = {}) {
     Math.min(1, Math.max(0, (units - entry.start) / entry.length));
 
   function jumpToScene(id) {
+    // A jump can skip past a continuity seam's far edge in either direction,
+    // where the per-frame reconcile can't unwind the handoff — restore first.
+    restoreAllCarried();
     const existing = path.find((e) => e.node.id === id);
     if (existing) return driver.jumpTo(existing.start);
     if (!storyNodes.has(id)) return console.warn(`[slash] gotoScene: unknown scene "${id}"`);
@@ -285,12 +288,76 @@ export async function createPlayer(container, bundle, { persist = true } = {}) {
   const camB = new THREE.Vector3();
   const tgtA = new THREE.Vector3();
   const tgtB = new THREE.Vector3();
-  function applyBlendedCamera(a, b, mix) {
+  const camO = new THREE.Vector3();
+  const ORIGIN = [0, 0, 0];
+  // Blend from pose `a` to pose `b`; `b` is expressed relative to `offset` (the
+  // incoming stage's position during a `continuity` band — [0,0,0] otherwise).
+  function applyBlendedCamera(a, b, mix, offset = ORIGIN) {
     const cam = viewer.camera;
-    cam.position.copy(camA.fromArray(a.position).lerp(camB.fromArray(b.position), mix));
-    cam.lookAt(tgtA.fromArray(a.target).lerp(tgtB.fromArray(b.target), mix));
+    camB.fromArray(b.position).add(camO.fromArray(offset));
+    tgtB.fromArray(b.target).add(camO);
+    cam.position.copy(camA.fromArray(a.position).lerp(camB, mix));
+    cam.lookAt(tgtA.fromArray(a.target).lerp(tgtB, mix));
     cam.fov = a.fov + (b.fov - a.fov) * mix;
     cam.updateProjectionMatrix();
+  }
+
+  // Carried actors handed off by a `continuity` seam: id → the home record
+  // (with its authoring def) so scrolling back can restore track-driven play.
+  const carriedHome = new Map();
+
+  /**
+   * Reconcile carried actors for a `continuity` seam into `path[i]`. Below the
+   * band's far edge the actor stays in (and is driven by) the outgoing scene;
+   * at/after it, the actor is reparented into the incoming scene and idles —
+   * so it "walks in and stays". The seam's `offset` keeps world position
+   * continuous across the reparent. Idempotent; safe to call every frame.
+   */
+  function reconcileContinuity(i, units) {
+    const inEntry = path[i];
+    const outEntry = path[i - 1];
+    if (!inEntry) return;
+    const tr = inEntry.enterTransition;
+    if (tr.type !== 'continuity' || !outEntry?.ready || !inEntry.ready) return;
+    const outSp = scenePlayers.get(variantId(outEntry));
+    const inSp = scenePlayers.get(variantId(inEntry));
+    if (!outSp || !inSp) return;
+    const [ox, oy, oz] = tr.offset;
+    const handedOff = units >= inEntry.start + tr.span / 2;
+    for (const id of tr.carry) {
+      if (handedOff && !inSp.hasAdopted(id)) {
+        // Snap to the seam pose first: a jump across the seam may not have
+        // rendered the band, leaving the actor at a stale position.
+        outSp.poseActorAt(id, 1);
+        const rec = outSp.detachActor(id);
+        if (!rec) continue;
+        rec.object.position.set(rec.object.position.x - ox, rec.object.position.y - oy, rec.object.position.z - oz);
+        inSp.adoptActor(id, { object: rec.object, mixer: rec.mixer });
+        carriedHome.set(id, { outSp, inSp, record: rec, offset: tr.offset });
+      } else if (!handedOff && inSp.hasAdopted(id)) {
+        const rel = inSp.releaseActor(id);
+        const home = carriedHome.get(id);
+        if (!rel || !home) continue;
+        rel.object.position.set(rel.object.position.x + ox, rel.object.position.y + oy, rel.object.position.z + oz);
+        home.outSp.attachActor(home.record);
+        carriedHome.delete(id);
+      }
+    }
+  }
+
+  // Return every carried actor to its home scene (track-driven again). Called
+  // when the path is truncated/reset, where the scroll-back reconcile that
+  // normally restores them can't run.
+  function restoreAllCarried() {
+    for (const [id, h] of carriedHome) {
+      if (h.inSp.hasAdopted(id)) {
+        h.inSp.releaseActor(id);
+        const o = h.record.object;
+        o.position.set(o.position.x + h.offset[0], o.position.y + h.offset[1], o.position.z + h.offset[2]);
+      }
+      if (!h.outSp.hasActor(id)) h.outSp.attachActor(h.record);
+    }
+    carriedHome.clear();
   }
 
   function notifyProgress(units, doc, t, loading) {
@@ -326,12 +393,21 @@ export async function createPlayer(container, bundle, { persist = true } = {}) {
     const primary = path[pi];
     if (!primary?.ready) return;
 
+    // Hand carried actors across nearby continuity seams before rendering.
+    reconcileContinuity(pi, units);
+    reconcileContinuity(pi + 1, units);
+
     // Transition band: render both sections and blend opacity + camera.
     const band = bandAt(pi, units);
     const pOut = band && scenePlayers.get(variantId(band.out));
     const pIn = band && scenePlayers.get(variantId(band.in));
     if (band && pOut && pIn) {
       setShown([pOut, pIn]);
+      // The outgoing stage anchors at origin; the incoming stage sits at the
+      // transition's `offset` (zero except for `continuity`) so a carried
+      // actor's path reads as continuous across the seam.
+      pOut.group.position.set(0, 0, 0);
+      pIn.group.position.fromArray(band.tr.offset);
       const tOut = localT(band.out, units);
       const tIn = localT(band.in, units);
       pOut.update(tOut, dt, viewer.camera, ctxFor(pOut), false);
@@ -339,19 +415,25 @@ export async function createPlayer(container, bundle, { persist = true } = {}) {
       const w = band.tr.def.weights(band.p);
       pOut.setOpacity(w.from);
       pIn.setOpacity(w.to);
-      applyBlendedCamera(pOut.sampleCamera(tOut), pIn.sampleCamera(tIn), band.tr.def.cameraMix(band.p));
+      applyBlendedCamera(
+        pOut.sampleCamera(tOut),
+        pIn.sampleCamera(tIn),
+        band.tr.def.cameraMix(band.p),
+        band.tr.offset,
+      );
       setPrimary(primary);
       const t = localT(primary, units);
       notifyProgress(units, primary === band.out ? pOut.doc : pIn.doc, t, loading);
       return;
     }
 
-    // Single section. Always restore full opacity: fast scrolling can skip a
-    // band's edge, leaving the surviving scene mid-fade.
+    // Single section. Always restore full opacity and origin: fast scrolling
+    // can skip a band's edge, leaving the surviving scene mid-fade or offset.
     const sp = scenePlayers.get(variantId(primary));
     if (!sp) return;
     setShown([sp]);
     sp.setOpacity(1);
+    sp.group.position.set(0, 0, 0);
     setPrimary(primary);
     const t = localT(primary, units);
     sp.update(t, dt, viewer.camera, ctxFor(sp), true);
@@ -416,6 +498,7 @@ export async function createPlayer(container, bundle, { persist = true } = {}) {
     /** Restart the story: clear state (and its persistence) and rewind. */
     reset() {
       state.reset();
+      restoreAllCarried();
       path.length = 1;
       if (path[0]) path[0].vpIndex = 0;
       autoPlay = false;

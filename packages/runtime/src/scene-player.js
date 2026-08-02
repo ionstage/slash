@@ -89,6 +89,13 @@ export async function createScenePlayer(
     fadeMeshes.push(node);
   });
 
+  // Actors carried in from a previous section by a `continuity` seam. They are
+  // reparented here (not re-instantiated), kept visible and idle-animated, but
+  // NOT driven by this scene's tracks — they hold the pose handed off at the
+  // seam ("the character walked in and now stands here").
+  /** @type {Map<string, {object: import('three').Object3D, mixer: THREE.AnimationMixer | null}>} */
+  const adopted = new Map();
+
   let lastT = 0;
   const fired = new Set();
 
@@ -147,11 +154,87 @@ export async function createScenePlayer(
      */
     tickAmbient(dt) {
       for (const { mixer } of actors.values()) mixer?.update(dt);
+      for (const { mixer } of adopted.values()) mixer?.update(dt);
       updateLightsAndEffects(lastT, dt);
     },
 
     /** The section's camera pose (position/target/fov) at progress t. */
     sampleCamera: cameraPose,
+
+    /**
+     * Remove an authored actor from this scene (stops track-driving and
+     * rendering it) and return its record so a `continuity` seam can carry it
+     * into the next section. Returns null if this scene doesn't own `id`.
+     * @param {string} id
+     */
+    detachActor(id) {
+      const record = actors.get(id);
+      if (!record) return null;
+      actors.delete(id);
+      group.remove(record.object);
+      return record;
+    },
+
+    /**
+     * Re-insert a previously {@link detachActor}ed record (its own scene),
+     * restoring track-driven playback. Used when scrolling back across a
+     * continuity seam.
+     */
+    attachActor(record) {
+      actors.set(record.def.id, record);
+      group.add(record.object);
+    },
+
+    /**
+     * Adopt an actor carried in from another section: reparent its object here
+     * and idle-animate it, without track-driving it. `object` is expected to
+     * already sit at the correct local pose.
+     * @param {string} id
+     * @param {{object: import('three').Object3D, mixer: THREE.AnimationMixer | null}} record
+     */
+    adoptActor(id, record) {
+      adopted.set(id, record);
+      group.add(record.object);
+    },
+
+    /**
+     * Snap one authored actor to its track pose at progress `t`, with no other
+     * side effects. A `continuity` handoff calls this at the seam (t=1) so the
+     * carried actor's reparent pose is deterministic even when the scroll
+     * jumped across the seam without rendering the intervening band frames.
+     * @param {string} id
+     * @param {number} t
+     */
+    poseActorAt(id, t) {
+      const rec = actors.get(id);
+      if (!rec) return;
+      const tracks = rec.def.tracks ?? {};
+      if (tracks.position) rec.object.position.fromArray(sampleTrack(tracks.position, t));
+      if (tracks.rotation) {
+        const [x, y, z] = sampleTrack(tracks.rotation, t);
+        rec.object.rotation.set(x * DEG, y * DEG, z * DEG);
+      }
+      if (tracks.scale) rec.object.scale.fromArray(sampleTrack(tracks.scale, t));
+    },
+
+    /** Release a carried actor adopted via {@link adoptActor}; returns it or null. */
+    releaseActor(id) {
+      const record = adopted.get(id);
+      if (!record) return null;
+      adopted.delete(id);
+      group.remove(record.object);
+      return record;
+    },
+
+    /** True while a carried actor with this id is adopted here. */
+    hasAdopted(id) {
+      return adopted.has(id);
+    },
+
+    /** True while this scene owns `id` as one of its authored actors. */
+    hasActor(id) {
+      return actors.has(id);
+    },
 
     /**
      * Set a uniform opacity on the scene's meshes (0..1), for transition
@@ -190,6 +273,9 @@ export async function createScenePlayer(
         if (tracks.scale) object.scale.fromArray(sampleTrack(tracks.scale, t));
         mixer?.update(dt);
       }
+
+      // Carried-in actors idle in place (they hold their handed-off pose).
+      for (const { mixer } of adopted.values()) mixer?.update(dt);
 
       // Camera holds the section's viewpoint (a comic-panel shot), unless the
       // transition controller is blending the camera across two sections.

@@ -83,6 +83,27 @@ test('migrateStory bumps v1 stories to v2 (seams default to cut)', () => {
   assert.equal(already, v2); // pass-through
 });
 
+test('story edges accept a continuity transition with carry and offset', () => {
+  const story = {
+    formatVersion: 2,
+    start: 'a',
+    scenes: [
+      {
+        id: 'a',
+        path: 'scenes/a.json',
+        next: 'b',
+        transition: { type: 'continuity', span: 1.5, carry: ['hero'], offset: [0, -0.3, -16] },
+      },
+      { id: 'b', path: 'scenes/b.json', next: null },
+    ],
+  };
+  assert.ok(validateDocument('story', story).valid);
+
+  // offset must be a 3-number array; carry must be strings.
+  story.scenes[0].transition.offset = [0, 0];
+  assert.ok(!validateDocument('story', story).valid);
+});
+
 test('oneOf rejects an action matching no variant', () => {
   const scene = minimalScene('a');
   scene.events = [

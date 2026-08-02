@@ -6,7 +6,12 @@
       "id": "meadow",
       "path": "scenes/meadow.json",
       "next": "shrine",
-      "transition": { "type": "crossfade", "span": 0.6 },
+      "transition": {
+        "type": "continuity",
+        "span": 1.5,
+        "carry": ["traveler"],
+        "offset": [0, -0.3, -16.5]
+      },
       "viewpoints": [{ "id": "meadow-tree", "path": "scenes/meadow-tree.json" }]
     },
     {

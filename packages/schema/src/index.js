@@ -72,8 +72,6 @@ export function validateProject(docs) {
   const assetIndex = /** @type {any} */ (docs.assetIndex);
   const state = /** @type {any} */ (docs.state);
 
-  const allSceneEntries = story.scenes.flatMap((s) => [s, ...(s.viewpoints ?? [])]);
-  const sceneIds = new Set(allSceneEntries.map((s) => s.id));
   const nodeIds = new Set(story.scenes.map((s) => s.id));
   const assets = new Map(assetIndex.assets.map((a) => [a.id, a]));
   const stateKeys = new Set([
@@ -86,11 +84,11 @@ export function validateProject(docs) {
     if (!stateKeys.has(key)) err(path, `unknown state key "${key}"`);
   };
 
-  if (allSceneEntries.length !== sceneIds.size) err('story.json/scenes', 'duplicate scene ids');
-  if (assetIndex.assets.length !== assets.size) err('assets/index.json/assets', 'duplicate asset ids');
+  if (story.scenes.length !== nodeIds.size) err('story.json/scenes', 'duplicate scene ids');
+  if (assetIndex.assets.length !== assets.size)
+    err('assets/index.json/assets', 'duplicate asset ids');
   if (!nodeIds.has(story.start)) err('story.json/start', `unknown scene "${story.start}"`);
   for (const [i, s] of story.scenes.entries()) {
-    // next/branches must point at story nodes (not viewpoint variants).
     if (s.next != null && !nodeIds.has(s.next))
       err(`story.json/scenes/${i}/next`, `unknown scene "${s.next}"`);
     for (const [j, branch] of (s.branches ?? []).entries()) {
@@ -98,10 +96,8 @@ export function validateProject(docs) {
         err(`story.json/scenes/${i}/branches/${j}/next`, `unknown scene "${branch.next}"`);
       checkStateKey(`story.json/scenes/${i}/branches/${j}/when/key`, branch.when.key);
     }
-    for (const entry of [s, ...(s.viewpoints ?? [])]) {
-      if (!(entry.id in docs.scenes))
-        err(`story.json/scenes/${i}`, `scene file for "${entry.id}" not provided`);
-    }
+    if (!(s.id in docs.scenes))
+      err(`story.json/scenes/${i}`, `scene file for "${s.id}" not provided`);
   }
   for (const a of assetIndex.assets) {
     if ((a.kind === 'gltf' || a.kind === 'audio') && !a.source)
@@ -117,7 +113,8 @@ export function validateProject(docs) {
   for (const [id, sceneDoc] of Object.entries(docs.scenes)) {
     const scene = /** @type {any} */ (sceneDoc);
     const file = `scenes/${id}.json`;
-    if (scene.id !== id) err(`${file}/id`, `scene id "${scene.id}" does not match story entry "${id}"`);
+    if (scene.id !== id)
+      err(`${file}/id`, `scene id "${scene.id}" does not match story entry "${id}"`);
     if (!assets.has(scene.stage.assetId))
       err(`${file}/stage/assetId`, `unknown asset "${scene.stage.assetId}"`);
     if (scene.audio?.bgm) checkAudioRef(`${file}/audio/bgm`, scene.audio.bgm);
@@ -131,11 +128,16 @@ export function validateProject(docs) {
       actorIds.add(actor.id);
       if (!assets.has(actor.assetId))
         err(`${file}/actors/${i}/assetId`, `unknown asset "${actor.assetId}"`);
-      if (actor.visibleWhen) checkStateKey(`${file}/actors/${i}/visibleWhen/key`, actor.visibleWhen.key);
+      if (actor.visibleWhen)
+        checkStateKey(`${file}/actors/${i}/visibleWhen/key`, actor.visibleWhen.key);
     }
     for (const [i, event] of (scene.events ?? []).entries()) {
       const at = `${file}/events/${i}`;
-      if (event.trigger.type === 'tap' && event.trigger.target && !actorIds.has(event.trigger.target))
+      if (
+        event.trigger.type === 'tap' &&
+        event.trigger.target &&
+        !actorIds.has(event.trigger.target)
+      )
         err(`${at}/trigger/target`, `unknown actor "${event.trigger.target}"`);
       if (event.trigger.type === 'state') checkStateKey(`${at}/trigger/key`, event.trigger.key);
       if (event.when) checkStateKey(`${at}/when/key`, event.when.key);

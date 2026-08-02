@@ -1,5 +1,15 @@
 # Slash
+
 ## 3D Story Authoring Tool
+
+> **Current scope (2026-08).** This document describes the full vision, which is
+> unchanged. Implementation has been deliberately narrowed to a polished
+> **runtime** focused on scroll behavior and scroll↔content synchronization,
+> playing a **linear story path with branching**. Deferred for now (preserved in
+> git history): the authoring **Editor**, seamless boundary transitions
+> (crossfade / camera move / continuity), horizontal **viewpoint** switching,
+> **AI** generation, and the **export/optimization** pipeline. Sections below
+> that describe those systems are vision, not the current build.
 
 ## Overview
 
@@ -274,7 +284,7 @@ A stage only needs to look correct from its own viewpoint.
 
 Optional restrained drift adds subtle in-stage camera motion.
 
-Characters move *through* the connected environments with restrained, idle-led motion.
+Characters move _through_ the connected environments with restrained, idle-led motion.
 
 ---
 

@@ -28,7 +28,13 @@
     }
   ],
   "effects": [
-    { "id": "snowfall", "preset": "snow", "count": 500, "area": [26, 12, 26], "position": [0, 6, 0] }
+    {
+      "id": "snowfall",
+      "preset": "snow",
+      "count": 500,
+      "area": [26, 12, 26],
+      "position": [0, 6, 0]
+    }
   ],
   "actors": [
     {

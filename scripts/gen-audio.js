@@ -45,7 +45,7 @@ writeFileSync(outDir + 'chime.wav', wav(chime));
 const N = RATE * 3;
 let lp = 0;
 const wind = Array.from({ length: N }, (_, i) => {
-  lp += 0.04 * ((Math.random() * 2 - 1) - lp);
+  lp += 0.04 * (Math.random() * 2 - 1 - lp);
   const swell = 0.7 + 0.3 * Math.sin((2 * Math.PI * i) / N);
   return lp * swell * 2.2;
 });

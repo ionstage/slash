@@ -468,9 +468,11 @@ export function createInspector(container, store, viewport) {
       el('div.row', {}, [
         nextSelect(node.next, (v) => {
           node.next = v;
+          if (!v) delete node.transition; // no seam past the end of the story
           touchStory();
         }, true),
       ]),
+      ...(node.next ? [transitionEditor(node, node.id, touchStory)] : []),
       el('h3', {}, 'Branches'),
       ...(node.branches ?? []).map((branch, i) =>
         el('div.event-card', {}, [
@@ -493,6 +495,7 @@ export function createInspector(container, store, viewport) {
               touchStory();
             }, false),
           ]),
+          transitionEditor(branch, node.id, touchStory),
         ]),
       ),
       el('button.mini-wide', {
@@ -505,6 +508,87 @@ export function createInspector(container, store, viewport) {
         },
       }),
     ];
+  }
+
+  // Per-boundary transition: how the seam into the target section plays.
+  // `owner` is the story node (for its `next`) or a branch; both hold an
+  // optional `transition`. `outSceneId` is the section the seam leaves from —
+  // the source of any carried actors.
+  const TRANSITION_SPANS = { crossfade: 0.5, camera: 0.9, continuity: 1 };
+  function transitionEditor(owner, outSceneId, touch) {
+    const type = owner.transition?.type ?? 'cut';
+    const rows = [
+      el('div.row', {}, [
+        el('span', {}, 'transition'),
+        el(
+          'select',
+          {
+            title: 'How the seam into this section plays',
+            onchange: (e) => {
+              const v = e.target.value;
+              if (v === 'cut') {
+                delete owner.transition;
+              } else {
+                const span = owner.transition?.span ?? TRANSITION_SPANS[v];
+                owner.transition = { type: v, span };
+                if (v === 'continuity') {
+                  owner.transition.carry = [];
+                  owner.transition.offset = [0, 0, 0];
+                }
+              }
+              touch();
+            },
+          },
+          ['cut', 'crossfade', 'camera', 'continuity'].map((t) =>
+            el('option', { value: t, selected: type === t }, t),
+          ),
+        ),
+        type !== 'cut'
+          ? smallNumber(owner.transition.span ?? TRANSITION_SPANS[type], (v) => {
+              owner.transition.span = v;
+              touch();
+            }, { step: 0.1, title: 'span (viewport-heights)' })
+          : null,
+      ]),
+    ];
+    if (type === 'continuity') {
+      rows.push(carryEditor(owner.transition, outSceneId, touch));
+      rows.push(
+        vecField('Offset', owner.transition.offset ?? [0, 0, 0], (v) => {
+          owner.transition.offset = v;
+          touch();
+        }),
+      );
+    }
+    return el('div', {}, rows);
+  }
+
+  // Which of the source section's actors carry across a continuity seam.
+  function carryEditor(transition, outSceneId, touch) {
+    const actors = store.docs.scenes[outSceneId]?.actors ?? [];
+    transition.carry ??= [];
+    if (actors.length === 0)
+      return el('p.placeholder', {}, 'No actors in the source scene to carry.');
+    return el('div.row', {}, [
+      el('span', {}, 'carry'),
+      ...actors.map((a) =>
+        el('label.check', {}, [
+          el('input', {
+            type: 'checkbox',
+            checked: transition.carry.includes(a.id),
+            onchange: (e) => {
+              if (e.target.checked) {
+                if (!transition.carry.includes(a.id)) transition.carry.push(a.id);
+              } else {
+                transition.carry = transition.carry.filter((id) => id !== a.id);
+              }
+              touch();
+            },
+          }),
+          a.id,
+        ]),
+      ),
+    ]);
   }
 
   function conditionInputs(cond, onChange) {

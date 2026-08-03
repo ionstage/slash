@@ -31,21 +31,6 @@
           "pattern": "^#[0-9a-fA-F]{6}$",
           "description": "Clear color as #rrggbb."
         },
-        "outline": {
-          "type": "object",
-          "additionalProperties": false,
-          "description": "Toon outline (inverted-hull) around meshes.",
-          "properties": {
-            "enabled": { "type": "boolean" },
-            "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
-            "thickness": {
-              "type": "number",
-              "minimum": 0,
-              "maximum": 0.1,
-              "description": "Hull scale offset; ~0.02 is a good default."
-            }
-          }
-        },
         "post": {
           "type": "object",
           "additionalProperties": false,

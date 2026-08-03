@@ -70,7 +70,7 @@ export async function createWorldPlayer(container, bundle) {
     object.name = `object:${obj.id}`;
     applyTransform(object, obj.transform);
     object.position.y += obj.worldY;
-    applyStyle(object, renderStyle.style, renderStyle.outline);
+    applyStyle(object, renderStyle.style);
     layer.group.add(object);
   }
 
@@ -85,7 +85,7 @@ export async function createWorldPlayer(container, bundle) {
     const worldFollow = def.follow !== 'camera';
     const baseY = worldFollow ? (def.worldY ?? 0) : 0;
     object.position.y += baseY;
-    applyStyle(object, renderStyle.style, renderStyle.outline);
+    applyStyle(object, renderStyle.style);
     const mixer = clips.length > 0 ? new THREE.AnimationMixer(object) : null;
     if (mixer && def.idleClip) {
       const clip = THREE.AnimationClip.findByName(clips, def.idleClip);

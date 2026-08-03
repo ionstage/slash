@@ -8,7 +8,7 @@ a project. It is suitable for use as a system prompt for agentic authoring.
 
 ```
 project/
-  project.json        Manifest: title, render style (toon/outline/post), settings
+  project.json        Manifest: title, render style (toon/post), settings
   world.json          The whole world: layers, objects, actors, atmosphere
   assets/index.json   Asset registry (models, primitives)
   assets/…            Binary files referenced by the registry
@@ -54,7 +54,7 @@ Generated content must pass this before it is usable.
   intensity/color/position tracks; `follow: "camera"` keeps a key light on the
   traveler), and `environment.effects` (particle presets rain/snow/sparks/
   fireflies with an `intensity` track — these travel with the viewer).
-  Project-level `renderStyle` sets toon/realistic style, outlines, bloom, vignette.
+  Project-level `renderStyle` sets toon/realistic style, bloom, vignette.
 
 ## Rules for generated content
 

@@ -2,8 +2,8 @@ import * as THREE from 'three';
 
 /**
  * Render styles: converts imported/primitive materials to the project's
- * style preset and adds inverted-hull toon outlines. Applied per object at
- * scene assembly, so every asset (glTF or primitive) gets the same look.
+ * style preset. Applied per object at scene assembly, so every asset (glTF
+ * or primitive) gets the same look.
  */
 
 let toonGradient = null;
@@ -21,16 +21,12 @@ function gradientMap() {
 /**
  * @param {import('three').Object3D} object
  * @param {'toon'|'realistic'|'illustration'|'lowpoly'} [style]
- * @param {{enabled?: boolean, color?: string, thickness?: number}} [outline]
  */
-export function applyStyle(object, style = 'toon', outline = {}) {
-  const outlined = [];
+export function applyStyle(object, style = 'toon') {
   object.traverse((node) => {
-    if (!node.isMesh || node.userData.slashOutline) return;
+    if (!node.isMesh) return;
     node.material = convertMaterial(node.material, style);
-    if (outline.enabled && (style === 'toon' || style === 'illustration')) outlined.push(node);
   });
-  for (const mesh of outlined) addOutline(mesh, outline);
   return object;
 }
 
@@ -65,22 +61,4 @@ function convertMaterial(material, style) {
     default:
       return material;
   }
-}
-
-/**
- * Inverted-hull outline: a slightly scaled back-face copy as a child mesh.
- * Skipped for skinned meshes (the hull would not follow bones) and for
- * very large meshes like stages, where an outline reads as a glitch.
- */
-function addOutline(mesh, { color = '#000000', thickness = 0.02 }) {
-  if (mesh.isSkinnedMesh) return;
-  mesh.geometry.computeBoundingSphere();
-  if ((mesh.geometry.boundingSphere?.radius ?? 0) > 8) return;
-  const hull = new THREE.Mesh(
-    mesh.geometry,
-    new THREE.MeshBasicMaterial({ color, side: THREE.BackSide }),
-  );
-  hull.scale.setScalar(1 + thickness);
-  hull.userData.slashOutline = true;
-  mesh.add(hull);
 }

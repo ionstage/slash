@@ -1,7 +1,7 @@
 /**
  * Horizontal swipe input driver — turntable rotation.
  *
- * The second input axis, alongside native vertical scroll (`scroll.js`). A
+ * The second input axis, alongside the vertical scroll axis (`scroll.js`). A
  * horizontal drag turns the world: the driver accumulates a single scalar
  * `yaw` (radians), which `world-map.js` turns into a camera orbit around the
  * look-at point at unchanged height. This module owns *only* the gesture and
@@ -13,15 +13,15 @@
  * component never moves the world vertically (`yaw` reaches nothing but the
  * camera orbit) and the vertical component never turns it.
  *
- * **A horizontal drag turns the view even while the page is scrolling** — a
+ * **A horizontal drag turns the view even while the world is scrolling** — a
  * scroll in progress never suspends the horizontal axis, whether it is running
- * under the finger or coasting on momentum. That requirement is why touch is
- * handled through touch events rather than pointer events: when the browser
- * claims a gesture for native scrolling it fires `pointercancel` and no further
- * pointer events arrive, but `touchmove` keeps being dispatched throughout the
- * scroll. So the finger's sideways travel is still ours while its vertical
- * travel is the browser's. Pointer events handle mouse and pen, which the
- * browser never claims.
+ * under the finger or coasting on momentum. That is now structural: since the
+ * runtime scrolls itself and the page is pinned (`touch-action: none`), the
+ * browser cannot claim a gesture partway through and change which events
+ * arrive. Touch is still read through touch events rather than pointer events,
+ * which remains the more robust reader — an engine that cancels pointers
+ * mid-gesture for its own reasons cannot take the horizontal axis down with it,
+ * and `scroll.js` reads the same touch stream for its own component.
  *
  * Nothing here writes scroll position, and the horizontal axis is gated only
  * against noise, never against the vertical one:
@@ -29,10 +29,9 @@
  *   - A drag ignores its first `WOBBLE_PX` of horizontal travel, so the hand
  *     wobble in a vertical scroll does not slowly spin the world. Exactly that
  *     much is ever ignored, whatever the browser's move-event granularity.
- *   - Wheel events are never cancelled — cancelling one would take its vertical
- *     component with it — so horizontal trackpad travel rotates while the same
- *     gesture scrolls. `overscroll-behavior-x` (not `preventDefault`) keeps
- *     horizontal overscroll from triggering back-navigation.
+ *   - The wheel listener only reads `deltaX`, so horizontal trackpad travel
+ *     rotates while the same gesture scrolls. `scroll.js` cancels the event and
+ *     spends its `deltaY`; both components of one wheel gesture land.
  *
  * Feel: the drag is 1:1 with the finger ("grab the world and spin it") and a
  * flick coasts to a stop with exponential decay. Rotation is unbounded — a
@@ -188,8 +187,8 @@ export function createSwipeDriver(element, { degreesPerWidth = 180 } = {}) {
     const px = Math.sign(raw) * Math.max(0, Math.abs(raw) - WHEEL_NOISE_PX);
     if (px === 0) return;
     // Wheel deltas are the negation of finger travel, so this matches the drag.
-    // Trackpads emit their own momentum tail; no extra coast. The event is left
-    // uncancelled so its vertical component keeps scrolling the page.
+    // Trackpads emit their own momentum tail; no extra coast. Cancelling the
+    // event is `scroll.js`'s job — this listener only reads the X component.
     yaw += px * radiansPerPixel();
     omega = 0;
   }
@@ -212,8 +211,8 @@ export function createSwipeDriver(element, { degreesPerWidth = 180 } = {}) {
   }
 
   // Horizontal overscroll would otherwise trigger the browser's back-navigation
-  // gesture. Neutralised here rather than by cancelling wheel events, which
-  // would cancel their vertical scrolling too.
+  // gesture. This driver owns the X longhand and `scroll.js` owns the Y one, so
+  // neither strands the other's value when disposed.
   const root = doc.documentElement;
   const prevOverscrollX = root.style.overscrollBehaviorX;
   root.style.overscrollBehaviorX = 'none';

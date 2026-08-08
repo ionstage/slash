@@ -14,7 +14,8 @@ const DEG = Math.PI / 180;
 /**
  * The world player: plays one continuous vertical world (`world.json`).
  *
- * Scroll is a single axis (`units`, viewport-heights). The camera descends
+ * Scroll is a single axis (`units`, viewport-heights) which the runtime drives
+ * itself — nothing here scrolls natively (`scroll.js`). The camera descends
  * through a world that is fixed in space, so environments stream past while
  * camera-following actors stay framed — an attraction where the stage moves
  * and the characters travel through it. All motion is derived every frame from
@@ -136,7 +137,7 @@ export async function createWorldPlayer(container, bundle) {
   const progressListeners = new Set();
 
   viewer.onTick((dt) => {
-    const units = driver.update();
+    const units = driver.update(dt);
     const yaw = swipe.update(dt);
     const travel = travelAt(units, world);
     const g = progressAt(units, world);

@@ -613,6 +613,13 @@ can be said structurally is that the swipe driver never reads scroll state, so
 there is nothing for a coasting page to gate. Confirming the real fling needs a
 physical device.
 
+> **Corrected by the V-series.** The cause was misattributed. CDP dispatch in
+> this container round-trips at ~1.1 s per event, so a hand-stepped "flick" was
+> really a 12-second drag ending in a 1.1-second pause — no engine would read
+> that as a throw. The fling was never dispatched, rather than dispatched and
+> dropped. Driving the gesture from inside the page instead makes touch inertia
+> perfectly verifiable here; see _V-series → Verified_.
+
 ## Deferred
 
 - **Rotation-aware composition tooling** — nothing warns an author that a stage
@@ -620,3 +627,181 @@ physical device.
   territory), not a runtime one.
 - **Character-viewpoint switching** on the swipe axis (W/S-series deferral)
   would now collide with rotation; it needs a different gesture or a mode.
+
+---
+
+# V-series — The application owns scrolling (2026-08)
+
+A major specification change: **stop using the browser's native scrolling and
+handle all scrolling inside the application.** The page no longer scrolls at
+all — no scroll range, no scrollbar, no spacer — and `scroll.js` becomes a real
+input driver rather than a reader of `scrollTop`.
+
+This was the escape hatch the R-series risk note named ("the only fix would be
+taking scrolling over entirely: `touch-action: none` + hand-rolled momentum").
+Taken deliberately now, it removes the last piece of behaviour the runtime did
+not control.
+
+Why it is worth the work:
+
+- **The feel stops being a per-platform accident.** Distance per gesture, flick
+  momentum, decay shape and where a coast stops are defined once, in one file,
+  and are identical on every engine.
+- **The axes stop being different kinds of thing.** Vertical was the browser's
+  and horizontal was ours; one gesture was served by two systems that could
+  start, respond and settle differently. Now one decomposition feeds two
+  identical integrators.
+- **Nothing can be claimed mid-gesture.** No engine heuristic takes a gesture
+  over partway through, and no native scroll animation, rubber-band or
+  scroll-anchoring runs underneath the story.
+
+The cost, accepted: momentum, end clamping and keyboard paging are now ours to
+build and maintain, and the platform's native-scroller conventions (a
+scrollbar, and whatever a viewer's accessibility or input settings apply to
+native scrollers) no longer come for free.
+
+## The model
+
+`scroll.js` keeps a position it owns, in the same `units` as before, so nothing
+downstream changes — `world-map.js`, the tracks and the whole `g` pipeline are
+untouched. Off the finger, one line moves it:
+
+```
+position += (target - position) * (1 - exp(-dt / tau))
+```
+
+Exponential easing toward a fixed target _is_ exponential velocity decay, so
+that single integrator does both jobs the browser used to: it smooths a
+discrete wheel click (short `tau`) and coasts a flick to rest (long `tau`, the
+target thrown `v * tau` ahead so the coast starts at exactly the release
+velocity). `swipe.js` already decayed its rotation this way, so both axes now
+settle with the same shape.
+
+Impulses carry a **kind** (`wheel`, `page`, `key`, `flick`, `drag`). The same
+kind accumulates onto the running target — a second wheel click extends the
+first — while a new kind rebases the target onto the current position and takes
+over, so a wheel click during a coast cancels the coast instead of inheriting
+its distant target. Under the finger nothing is integrated: position tracks 1:1.
+
+Two spec rules fall out as one-liners rather than being the browser's to honour:
+
+- **Touching stops the inertia** — contact sets `target = position`, before the
+  drag has moved a pixel.
+- **A drag spends exactly the deadband** — 8 px of wobble is ignored, then
+  tracking starts from where the deadband was crossed, matching `swipe.js`.
+
+Position being viewport-relative rather than a pixel offset also means a device
+rotation now **preserves the story position exactly**, where native scrolling
+kept a `scrollTop` that no longer meant the same thing.
+
+## Changes by area
+
+- **runtime**: `scroll.js` rewritten as a virtual scroller — touch, mouse/pen
+  drag, wheel (cancelled now that its vertical component is ours, except
+  ctrl+wheel, which is left to the browser's zoom), ↑/↓,
+  PageUp/PageDown, space, Home/End; flick momentum, clamping to
+  `[0, getTotalUnits()]`, and the document pinned (`overflow: hidden`,
+  `touch-action: none`, `overscroll-behavior-y: none`) and restored on dispose.
+  `update()` now takes `dt`. `world-player.js` passes it.
+- **runtime**: `swipe.js` is unchanged in behaviour; its rationale comments are
+  not. Reading touch through touch events was justified by the browser claiming
+  gestures and firing `pointercancel` — that cannot happen now, so the comment
+  says what is actually true (it stays the more robust reader, and `scroll.js`
+  reads the same stream for its own component). The wheel note flips too:
+  `scroll.js` cancels the event, `swipe.js` only reads its `deltaX`. The two
+  drivers own disjoint `overscroll-behavior` longhands so neither strands the
+  other's value on dispose.
+- **runtime**: `index.html` sizes `#app` to `100svh`, not `100lvh`. The old
+  value was right only _because_ native scrolling collapsed the mobile toolbar;
+  browsers retract it in response to native scrolling, which no longer happens,
+  so the toolbar now stays for the whole session and `100lvh` would leave the
+  bottom of the canvas permanently behind it.
+- **schema**: untouched. No authored knob changed; `travelPerUnit` is still the
+  scroll-feel knob and `rotation.degreesPerWidth` the swipe one.
+- **docs**: `spec.md` gains the app-owns-scrolling statement under _Interactive
+  Input_ (with its costs stated), and the two _Horizontal Rotation_ bullets that
+  said "natively" are corrected; `README.md` and `docs/ai-authoring.md` say the
+  page never scrolls.
+- **tests**: new `test/scroll.test.js` (22 tests). The whole feel is now our
+  arithmetic, so all of it is testable in Node — drag mapping and deadband,
+  wheel smoothing and unit conversion, clamping, resize invariance, the flick
+  coast decelerating to a full stop, the stale-release rule, contact killing a
+  coast, kind-takeover, keys, and the document left unscrollable and restored on
+  dispose. Two tests run both drivers on one harness and assert a single
+  diagonal gesture moves both axes while pure gestures move only their own.
+
+## Verified
+
+`npm test` (61, of which 22 are the new scroll-driver tests), `npm run validate`,
+`npm run lint`, `npm run build` all green.
+
+Desktop drive (Chromium 1000×800, `?sync`): a 500 px wheel event moved the story
+**+0.625 units — exactly `deltaY / innerHeight`**; the reverse wheel returned it;
+a mouse drag moved it 1:1 and coasted on release; `End` reached `units 14 / 14`
+and `Home` returned to 0, both clamped exactly.
+
+Touch drive (Pixel 7 emulation). The coast is now the runtime's own arithmetic,
+so it is measurable here — which the R-series could not do. Two **identical**
+400 px / 160 ms gestures, differing only in whether the finger paused before
+lifting:
+
+| gesture                          | Δunits     | what it isolates             |
+| -------------------------------- | ---------- | ---------------------------- |
+| released immediately (a flick)   | **+2.083** | drag + coast                 |
+| held still 200 ms, then released | **+0.467** | drag only — the throw is off |
+
+0.467 units × 839 px = 392 px = **the 400 px drag less the 8 px deadband, to the
+pixel**, so the drag is exactly 1:1 and the deadband spends exactly its 8 px.
+The difference, **1.616 units, is the flick coast** — and the stale-release rule
+suppressed all of it.
+
+A finger landing during that coast, sampled per frame:
+
+```
+coasting:      1.729 -> 2.017 -> 2.1766     (still climbing)
+finger lands:  2.1766 -> 2.1766 -> 2.1766 -> 2.1766 -> 2.1766 -> 2.1766
+```
+
+Frozen on contact and staying frozen — the spec's "touching the world stops its
+inertia", now honoured by this runtime rather than by the browser.
+
+One diagonal flick moved both axes at once (units 3.93 → 5.492, yaw 0° → 502.3°);
+pure gestures moved only their own axis. Throughout, `scrollY` stayed 0, the
+document's scroll range stayed 0, `body` was `overflow: hidden`, `#app` was
+`touch-action: none`, and no spacer existed.
+
+**Harness notes, for whoever verifies this next.** Two dead ends worth not
+repeating: `Input.dispatchTouchEvent` round-trips at ~1.1 s per event in this
+container, so hand-stepped CDP gestures cannot express any velocity — this is
+what the R-series mistook for CDP producing no fling — and
+`Input.synthesizeScrollGesture` delivered 2 events with no moves, driving
+nothing. What works is dispatching the gesture from inside the page in a single
+task with a busy-wait between events, which gives realistic timestamps; the
+per-frame progress payload only updates on a rendered frame, so read it after
+yielding, or isolate a component by differencing two gestures as above.
+
+**Not verified here: how it feels.** Software rendering gave 224 ms frames on
+desktop and 382 ms on the emulated phone (~3 fps), so smoothness, and whether
+the chosen time constants are the right ones, cannot be judged in this
+environment — only that the values are correct and dt-driven. The integrator
+takes `dt` rather than assuming a frame length, and it behaved correctly at
+those frame times, but the feel constants (`TAU`, `KEY_RATE`, `PAGE_UNITS`,
+`FLICK_MAX`) want a session on real hardware.
+
+## Deferred
+
+- **Feel tuning on real hardware** — the constants are a considered first cut,
+  not a tuned one. Most likely to want adjustment: `TAU.flick` (0.55 s) and
+  `FLICK_MAX`, which together set how far a hard throw travels.
+- **Rubber-band at the ends.** Hitting 0 or `length` stops dead. Native touch
+  surfaces give a little and spring back, which also signals "this is the end"
+  rather than "input stopped working". Cheap to add on top of the target model.
+- **Accessibility of a non-native scroller.** The page no longer exposes a
+  scrollbar or a native scroll range, so anything a viewer's assistive or input
+  settings apply to native scrollers (scroll-to-position, some switch/pointer
+  aids) no longer applies. The keyboard axis (↑/↓, PageUp/PageDown, space,
+  Home/End) is the mitigation implemented so far; `prefers-reduced-motion`
+  shortening the coast is an obvious next step, and unbuilt.
+- **A scroll-position indicator.** With no scrollbar there is nothing showing
+  how far through the story the viewer is. The `?sync` overlay is a debug
+  readout, not that.

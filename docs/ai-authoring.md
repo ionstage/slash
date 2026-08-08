@@ -23,10 +23,14 @@ Generated content must pass this before it is usable.
 ## The mental model
 
 - The experience is **one continuous vertical world**, not a sequence of
-  scenes. The viewer descends it by **native vertical scroll** — scrolling down
-  moves the camera down. There are exactly **two inputs**: vertical scroll, and
+  scenes. The viewer descends it by **scrolling** — scrolling down moves the
+  camera down. There are exactly **two inputs**: vertical scroll, and
   horizontal swipe (which turns the view, below). The world is otherwise
   **passive** — no taps, events, state, or branching.
+- The page itself **never scrolls**: the runtime reads the raw input and drives
+  both axes itself, momentum included. Nothing you author depends on this, but
+  it is why the scroll position is a continuous parameter (`units`) rather than
+  a document offset, and why it is preserved exactly when a device rotates.
 - Scroll position is `units` (viewport-heights). Two derived scalars drive
   everything (see `packages/runtime/src/world-map.js`, the single source of
   truth):

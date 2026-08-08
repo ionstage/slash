@@ -7,7 +7,9 @@
 > behavior and scroll↔world synchronization, playing **one continuous vertical
 > world** (see _Connected Stages_ below). It takes **two inputs**: vertical
 > scroll to descend, and horizontal swipe to **turn the view** around the
-> content (see _Horizontal Rotation_ below). The world is otherwise
+> content (see _Horizontal Rotation_ below), and it **drives both of them
+> itself** — the page never scrolls natively (see _Interactive Input_). The
+> world is otherwise
 > **passive** — no taps, events, or state. Deferred for now (preserved in git
 > history): the authoring **Editor**, horizontal **viewpoint** switching (swipe
 > to switch characters — allowed by the vision, superseded on the swipe axis by
@@ -172,10 +174,35 @@ User controls progression through:
 - Vertical scroll
 - Horizontal swipe
 
-Vertical scroll uses the browser's native scrolling.
-It is the primary navigation axis: scrolling down advances the story.
-Horizontal swipe **turns the view around the content** — see _Horizontal
+Vertical scroll is the primary navigation axis: scrolling down advances the
+story. Horizontal swipe **turns the view around the content** — see _Horizontal
 Rotation_ under the Stage System.
+
+**The application owns scrolling outright.** Nothing is delegated to the
+browser's native scrolling: the page itself never scrolls, and the runtime reads
+the raw input — touch, drag, wheel, keys — and moves the story itself. Both axes
+are therefore the same kind of thing, an input the application interprets, and
+the whole feel is authored rather than inherited from whichever engine the
+viewer happens to be running:
+
+- **The feel is one design, not a per-platform accident.** Distance per gesture,
+  the momentum after a flick, how a coast decays and where it stops are the
+  runtime's to define, and identical everywhere.
+- **The two axes cannot diverge.** A single gesture is decomposed by the same
+  code on both axes, so they start together, respond together and settle with
+  the same shape — impossible while one axis was the browser's and the other
+  the application's.
+- **Nothing can be taken away mid-gesture.** No engine heuristic can claim a
+  gesture partway through, and there is no native scroll animation, rubber-band
+  or scroll-anchoring behaviour running underneath the story.
+
+The cost is that everything the browser used to provide must be built and
+maintained here — momentum, clamping at the ends, keyboard paging — and that
+the platform's own scrolling conventions (a scrollbar, and any behaviour a
+viewer's accessibility or input settings apply to native scrollers) do not come
+for free. That is accepted: the story position is a continuous parameter into a
+3D world rather than a document offset, and it needs to behave the same way for
+every viewer.
 
 The two axes are independent but not exclusive. Swiping never moves the story
 forward or back, and scrolling never turns the view — but both can happen at
@@ -302,7 +329,7 @@ to look at the scene from another side.
   axis's job; per-layer parallax offsets and every progress-keyed track are
   driven by scroll alone.
 - **Both axes may move at once.** A gesture is not classified as either a scroll
-  or a turn: it is decomposed. Its vertical component scrolls natively while its
+  or a turn: it is decomposed. Its vertical component scrolls while its
   horizontal component turns the view, in the same gesture and the same frame.
   Independence is about what each component controls, not about taking turns.
 - **A scroll in progress never suspends turning.** Horizontal drag keeps turning
@@ -311,9 +338,10 @@ to look at the scene from another side.
   in. The horizontal axis is always live.
 - **Touching the world stops its inertia.** A swipe that lands while the world
   is still coasting turns the view, but the leftover vertical motion ends on
-  contact, exactly as on any native scroll surface — putting a finger down is
-  also how the viewer stops a coasting descent. Only the coast ends; the swipe
-  itself is unaffected.
+  contact, as on any scroll surface — putting a finger down is also how the
+  viewer stops a coasting descent. Only the coast ends; the swipe itself is
+  unaffected. (The runtime owns its momentum, so this is its own rule to honour
+  rather than the browser's.)
 - **Free and persistent.** Any angle, both directions, no limit and no snapping.
   The angle stays where the viewer left it while they keep scrolling, until they
   swipe again.

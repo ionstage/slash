@@ -20,16 +20,11 @@
       #app {
         position: fixed;
         inset: 0;
-        /* 100svh is the viewport with the mobile toolbars *shown*, which
-           is the only state there is now: browsers retract the toolbar in
-           response to native scrolling, and the runtime does its own
-           scrolling (src/scroll.js), so the toolbar stays put for the
-           whole session. Sizing to the toolbar-collapsed viewport
-           (100lvh) would leave the bottom of the canvas permanently
-           behind the toolbar. Nothing resizes either way. (100vh is the
-           fallback for browsers without svh support.) */
+        /* 100vh fills the viewport at app load time. The runtime does its
+           own scrolling (src/scroll.js) and dynamically reads win.innerHeight,
+           accounting for toolbar changes. Using svh causes blank space on iOS
+           when the toolbar is hidden. */
         height: 100vh;
-        height: 100svh;
         touch-action: none;
       }
       #app canvas {

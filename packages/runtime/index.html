@@ -18,13 +18,18 @@
         color: #d5d5e0;
       }
       #app {
+        /* Pinned: the document scrolls behind it (src/scroll.js appends a
+           spacer for the scroll height) while the canvas stays in view. */
         position: fixed;
         inset: 0;
-        /* 100vh fills the viewport at app load time. The runtime does its
-           own scrolling (src/scroll.js) and dynamically reads win.innerHeight,
-           accounting for toolbar changes. Using svh causes blank space on iOS
-           when the toolbar is hidden. */
+        /* `inset: 0` alone sizes to the small viewport, which leaves a blank
+           strip on iOS once the toolbar collapses during a scroll. 100vh is the
+           large viewport, so the canvas covers that area too; the runtime reads
+           the live win.innerHeight for its own arithmetic. svh has the same
+           blank-strip problem as inset and is deliberately not used. */
         height: 100vh;
+        /* The driver overrides this with pan-y so the browser scrolls
+           vertically while swipe.js keeps reading the horizontal component. */
         touch-action: none;
       }
       #app canvas {

@@ -27,10 +27,10 @@ Generated content must pass this before it is usable.
   camera down. There are exactly **two inputs**: vertical scroll, and
   horizontal swipe (which turns the view, below). The world is otherwise
   **passive** — no taps, events, state, or branching.
-- The page itself **never scrolls**: the runtime reads the raw input and drives
-  both axes itself, momentum included. Nothing you author depends on this, but
-  it is why the scroll position is a continuous parameter (`units`) rather than
-  a document offset, and why it is preserved exactly when a device rotates.
+- The vertical axis is the **browser's own scrolling**, which the runtime reads
+  rather than drives; the horizontal axis is the runtime's. Nothing you author
+  depends on this, but it is why `travelPerUnit` is the only scroll-feel knob —
+  momentum and the ends belong to the platform.
 - Scroll position is `units` (viewport-heights). Two derived scalars drive
   everything (see `packages/runtime/src/world-map.js`, the single source of
   truth):
@@ -41,14 +41,27 @@ Generated content must pass this before it is usable.
     (actor motion, fog, lights, effects) are keyframed against.
 - **Horizontal swipes turn the view.** A swipe left/right orbits the camera
   around the vertical axis through its look-at point, at unchanged height — the
-  content turns on a circular path, like a turntable. The rotation is free (any
-  angle, both directions), persists while scrolling, and is **independent of the
-  vertical axis**: it never changes `units`, `travel`, `g`, layer offsets or
-  anything keyframed over `g`. Independent, not exclusive — a diagonal swipe
-  scrolls and turns at the same time. The only knob is
+  content turns on a circular path, like a turntable. Rotation persists while
+  scrolling and is **independent of the vertical axis**: it never changes
+  `units`, `travel`, `g`, layer offsets or anything keyframed over `g`.
+  Independent, not exclusive — a diagonal swipe scrolls and turns at the same
+  time.
+- **You author where turning comes to rest.** `rotation.steps` is a list of
+  **absolute angles in degrees** the view settles onto when a swipe ends: `0` is
+  the framing you composed with `camera.offset`/`camera.target`, and increasing
+  angles walk the camera anticlockwise seen from above. **The intervals need not
+  be regular** — `[0, 40, 180, 300]` is as valid as `[0, 90, 180, 270]` — so
+  treat them as the shots this moment can be seen from, not a division of the
+  circle. Include `0` unless the front is deliberately not a resting angle,
+  since the world opens at `0` regardless. Omit `steps` entirely for free
+  rotation that rests wherever the viewer leaves it. The other knob is
   `rotation.degreesPerWidth` (degrees per full-width drag, default 180) — the
-  swipe-feel counterpart of `travelPerUnit`. You do not author the angle; the
-  viewer chooses it.
+  swipe-feel counterpart of `travelPerUnit`.
+- **Compose each step.** Because rotation rests only on the steps, your
+  obligation is finite: every configured angle should be a viewable shot, while
+  the angles between them only have to survive being passed through. Keep the
+  sides and back of anything close to the camera presentable, or place it far
+  enough out that turning never brings it near.
 - The world is **fixed in space**; the camera moves _through_ it. So place
   objects at their true `worldY` (metres) and let the descent reveal them. This
   is why authoring is WYSIWYG — an object at `worldY: -54` is passed at
@@ -88,9 +101,14 @@ Generated content must pass this before it is usable.
 6. Give persistent `follow: "camera"` actors restrained motion — a gentle sway
    or bob over `g`, not busy choreography. Let the descent and parallax carry
    the shot.
-7. Compose for the authored front-on framing, but assume the viewer can turn
-   the camera to any angle. Put nothing important _behind_ the camera's start
-   position expecting it to stay unseen, and surround the path with content on
-   all sides rather than a single flat backdrop facing the front — otherwise a
-   half-turn shows the empty side of the world. Distant `parallax` layers can
-   stay flat; they are far enough out that turning barely moves them.
+7. Compose for the authored front-on framing first, then for each angle in
+   `rotation.steps` — those are where the viewer can come to rest, so each one
+   should be a shot worth stopping on. Choose steps that have something to look
+   at rather than dividing the circle evenly out of habit; irregular spacing is
+   supported precisely so the angles can follow the composition.
+8. Even so, assume the viewer can pass through _any_ angle on the way. Put
+   nothing important _behind_ the camera's start position expecting it to stay
+   unseen, and surround the path with content on all sides rather than a single
+   flat backdrop facing the front — otherwise a half-turn shows the empty side
+   of the world. Distant `parallax` layers can stay flat; they are far enough
+   out that turning barely moves them.

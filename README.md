@@ -13,10 +13,19 @@ turntable and see the scene from another side. Rotation and descent are
 independent but not exclusive — a gesture's horizontal component turns while its
 vertical component scrolls, in the same swipe.
 
-**The runtime does its own scrolling.** The page never scrolls natively — there
-is no scrollbar and no scroll range. Both axes are read from the raw input
-(touch, drag, wheel, keys) and integrated by the runtime, momentum and all, so
-the feel is one design rather than whatever the viewer's browser does.
+**Turning is continuous under the finger and discrete at rest.** The drag tracks
+1:1, and on release the view settles onto the nearest angle the author
+configured (`rotation.steps`) — a flick carries past several, a gentle release
+falls back to the one it came from. Steps are absolute angles and need not be
+evenly spaced, so they are the framings a stage was composed for rather than a
+mechanical division of the circle. Configure none and rotation is free.
+
+**Scrolling is the browser's own.** The page really scrolls: a spacer gives the
+document the story's height, the canvas is pinned in front of it, and the
+runtime reads the scroll position rather than driving it. Momentum, the ends,
+the scrollbar and every accessibility affordance a native scroller carries come
+with it; the cost is that the vertical feel is the platform's, which is the
+trade being made.
 
 **Current scope.** The project is a polished runtime focused on scroll
 behavior and scroll↔world synchronization. Its two inputs are vertical scroll
@@ -30,7 +39,7 @@ git history preserves the earlier scene/story model.
 - `packages/schema` — content data format: JSON Schemas + dependency-free validator. The AI-facing surface.
 - `packages/runtime` — loads and plays content. Depends on schema + Three.js only.
   The input→world mapping is the pure module `src/world-map.js`; the player is `src/world-player.js`.
-  The two input drivers are `src/scroll.js` (the vertical axis, and the runtime's own scrolling) and `src/swipe.js` (rotation).
+  The two input drivers are `src/scroll.js` (the vertical axis — a reader over the browser's scrolling, with no input listeners of its own) and `src/swipe.js` (rotation, including the settle onto configured steps).
 - `sample-project/` — hand-written fixture project (`world.json`) used to develop and test everything.
 - `docs/ai-authoring.md` — the content model explained for LLMs; usable as a system prompt for agentic authoring.
 
@@ -38,15 +47,19 @@ git history preserves the earlier scene/story model.
 
 Run `npm run dev:runtime` and open `/?sync&stats`. The `sync` overlay reports
 `units` (viewport-heights scrolled), global progress `g`, camera descent
-(`travel`, metres), `camera.y`, the swipe rotation `yaw`, and each parallax
-layer's live Y offset — so the continuous travel and per-layer parallax are
-directly observable. Swipe (or drag, or hold ← / →) and watch `yaw` change
-while `camera.y` and every layer offset stay put; swipe diagonally and watch
-both move at once.
+(`travel`, metres), `camera.y`, the swipe rotation `yaw` — plus `→ <angle>`
+while it is settling onto a step — and each parallax layer's live Y offset, so
+the continuous travel and per-layer parallax are directly observable.
 
-The vertical axis takes a drag, the wheel, ↑ / ↓, PageUp / PageDown, space and
-Home / End — all of it driven by the runtime, so a flick coasts and a coast
-stops when you touch the world again.
+Swipe (or drag, or press ← / →) and watch `yaw` change while `camera.y` and
+every layer offset stay put; let go and watch it land on one of the sample's
+configured steps (`0, 40, 180, 300`). Throw it hard and it passes several;
+release it gently and it falls back. Swipe diagonally and watch both axes move
+at once.
+
+The vertical axis takes whatever your browser's scrolling takes — a drag, the
+wheel, the scrollbar, ↑ / ↓, PageUp / PageDown, space, Home / End — with the
+platform's own momentum and end behaviour, none of it reimplemented here.
 
 ## Commands
 

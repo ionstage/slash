@@ -2,8 +2,8 @@
  * Default player HUD: world label and an input hint. Injects its own DOM and
  * styles into `root`. Optional debug overlays: `stats` (frame-time / triangles
  * / draw calls) and `sync` (scroll↔world: units, global progress, camera
- * descent, swipe rotation, per-layer parallax offsets — for verifying the
- * scroll and rotation behaviour).
+ * descent, swipe rotation and the step it is settling onto, per-layer parallax
+ * offsets — for verifying the scroll and rotation behaviour).
  *
  * @param {Awaited<ReturnType<import('./world-player.js').createWorldPlayer>>} player
  * @param {HTMLElement} [root]
@@ -67,7 +67,7 @@ export function attachHud(player, root = document.body, { stats = false, sync = 
     syncEl.className = 'slash-sync';
     syncEl.style.top = stats ? '36px' : '10px';
     hud.append(syncEl);
-    player.onProgress(({ units, totalUnits, g, travel, cameraY, yaw, layers }) => {
+    player.onProgress(({ units, totalUnits, g, travel, cameraY, yaw, yawTarget, layers }) => {
       const layerLines = layers
         .map((l) => `  ${l.id.padEnd(6)} p${l.parallax.toFixed(2)}  y ${l.y.toFixed(1)}`)
         .join('\n');
@@ -76,11 +76,17 @@ export function attachHud(player, root = document.body, { stats = false, sync = 
       const deg = (yaw * 180) / Math.PI;
       const folded = deg - 360 * Math.round(deg / 360);
       const turns = Math.round((deg - folded) / 360);
+      // While settling, also show the step being aimed at (folded the same way)
+      // — the whole point of the snap is where it comes to rest.
+      const settling =
+        yawTarget === null || yawTarget === undefined
+          ? ''
+          : ` → ${foldDegrees((yawTarget * 180) / Math.PI).toFixed(0)}°`;
       syncEl.textContent =
         `units ${units.toFixed(3)} / ${totalUnits.toFixed(2)}\n` +
         `g ${g.toFixed(3)}   travel ${travel.toFixed(1)}m\n` +
         `camera.y ${cameraY.toFixed(1)}\n` +
-        `yaw ${folded.toFixed(1)}°${turns ? ` (${turns > 0 ? '+' : ''}${turns} turns)` : ''}\n` +
+        `yaw ${folded.toFixed(1)}°${turns ? ` (${turns > 0 ? '+' : ''}${turns} turns)` : ''}${settling}\n` +
         `layers (offset y):\n${layerLines}`;
     });
   }
@@ -93,6 +99,11 @@ export function attachHud(player, root = document.body, { stats = false, sync = 
       style.remove();
     },
   };
+}
+
+/** Fold an unbounded angle into (−180°, 180°] for display. */
+function foldDegrees(deg) {
+  return deg - 360 * Math.round(deg / 360);
 }
 
 /**

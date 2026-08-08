@@ -4,6 +4,10 @@
   "name": "The Moonlit Descent",
   "length": 14,
   "travelPerUnit": 6,
+  "rotation": {
+    "degreesPerWidth": 180,
+    "steps": [0, 40, 180, 300]
+  },
   "camera": {
     "offset": [0, 2.4, 9.5],
     "target": [0, 1.2, -3],

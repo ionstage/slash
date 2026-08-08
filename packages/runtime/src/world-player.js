@@ -14,12 +14,12 @@ const DEG = Math.PI / 180;
 /**
  * The world player: plays one continuous vertical world (`world.json`).
  *
- * Scroll is a single axis (`units`, viewport-heights) which the runtime drives
- * itself — nothing here scrolls natively (`scroll.js`). The camera descends
- * through a world that is fixed in space, so environments stream past while
- * camera-following actors stay framed — an attraction where the stage moves
- * and the characters travel through it. All motion is derived every frame from
- * `units` via the pure mapping in `world-map.js`:
+ * Scroll is a single axis (`units`, viewport-heights) read straight off the
+ * browser's own scrolling (`scroll.js`). The camera descends through a world
+ * that is fixed in space, so environments stream past while camera-following
+ * actors stay framed — an attraction where the stage moves and the characters
+ * travel through it. All motion is derived every frame from `units` via the
+ * pure mapping in `world-map.js`:
  *
  *   - the camera dollies down (`cameraPose`),
  *   - each parallax layer group is offset (`layerOffset`),
@@ -30,10 +30,10 @@ const DEG = Math.PI / 180;
  *
  * A second, independent axis: horizontal swipes accumulate `yaw` (`swipe.js`),
  * which orbits the camera around its look-at point at unchanged height — the
- * world turns like a turntable. Only the camera pose reads `yaw`; the parallax
- * layers, the traveler rig and every `g`-keyed track are driven by scroll
- * alone, so rotating never moves the world vertically and scrolling never
- * rotates it.
+ * world turns like a turntable, coming to rest on the angles `world.rotation`
+ * configures. Only the camera pose reads `yaw`; the parallax layers, the
+ * traveler rig and every `g`-keyed track are driven by scroll alone, so
+ * rotating never moves the world vertically and scrolling never rotates it.
  *
  * @param {HTMLElement} container
  * @param {Awaited<ReturnType<import('./loader.js').loadProject>>} bundle
@@ -132,6 +132,7 @@ export async function createWorldPlayer(container, bundle) {
   const driver = createScrollDriver(container, { getTotalUnits: () => world.length });
   const swipe = createSwipeDriver(container, {
     degreesPerWidth: world.rotation?.degreesPerWidth,
+    steps: world.rotation?.steps,
   });
 
   const progressListeners = new Set();
@@ -185,10 +186,10 @@ export async function createWorldPlayer(container, bundle) {
     }
     for (const effect of effects) effect.update(dt, g);
 
-    notifyProgress(units, travel, g, pose.position[1], yaw);
+    notifyProgress(units, travel, g, pose.position[1], yaw, swipe.target);
   });
 
-  function notifyProgress(units, travel, g, cameraY, yaw) {
+  function notifyProgress(units, travel, g, cameraY, yaw, yawTarget) {
     if (progressListeners.size === 0) return;
     const layerOffsets = [...layers.values()].map(({ def, group }) => ({
       id: def.id,
@@ -203,6 +204,7 @@ export async function createWorldPlayer(container, bundle) {
         g,
         cameraY,
         yaw,
+        yawTarget, // the step being settled onto, or null when at rest
         name: world.name ?? world.id,
         layers: layerOffsets,
       });

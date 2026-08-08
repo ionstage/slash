@@ -22,12 +22,15 @@
            spacer for the scroll height) while the canvas stays in view. */
         position: fixed;
         inset: 0;
-        /* `inset: 0` alone sizes to the small viewport, which leaves a blank
-           strip on iOS once the toolbar collapses during a scroll. 100vh is the
-           large viewport, so the canvas covers that area too; the runtime reads
-           the live win.innerHeight for its own arithmetic. svh has the same
-           blank-strip problem as inset and is deliberately not used. */
+        /* 100lvh sizes to the toolbar-collapsed viewport up front: at
+           load the toolbar simply occludes the bottom of an
+           already-correctly-sized canvas, and collapsing it later just
+           reveals that (already rendered) area rather than growing the
+           container into it. No resize fires for toolbar show/hide
+           either way (100vh is the fallback for browsers without lvh
+           support). */
         height: 100vh;
+        height: 100lvh;
         /* The driver overrides this with pan-y so the browser scrolls
            vertically while swipe.js keeps reading the horizontal component. */
         touch-action: none;

@@ -196,6 +196,13 @@ viewer happens to be running:
   gesture partway through, and there is no native scroll animation, rubber-band
   or scroll-anchoring behaviour running underneath the story.
 
+**The ends of the story are walls, not brakes.** The content begins and ends,
+and reaching either end simply stops the motion. Nothing decelerates on the way
+in, nothing resists a gesture that pushes past, and nothing springs back —
+scrolling arrives at the boundary at whatever speed it had and stops there. A
+gesture that continues past an end is spent, not stored, so reversing moves the
+story immediately rather than first unwinding an overshoot.
+
 The cost is that everything the browser used to provide must be built and
 maintained here — momentum, clamping at the ends, keyboard paging — and that
 the platform's own scrolling conventions (a scrollbar, and any behaviour a

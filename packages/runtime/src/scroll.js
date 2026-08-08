@@ -100,18 +100,21 @@ export function createScrollDriver(element, { getTotalUnits }) {
    * onto its target; a new kind rebases onto the current position and takes
    * over, so a wheel click during a coast cancels the coast rather than
    * inheriting its distant target.
+   *
+   * The target is deliberately *not* clamped to the story: aiming it past an
+   * end is what lets the motion arrive there at full speed (see `update`).
    */
   function impulse(deltaUnits, kind) {
     if (kind !== mode) {
       mode = kind;
       target = position;
     }
-    target = clampUnits(target + deltaUnits);
+    target += deltaUnits;
   }
 
   function jumpTarget(units, kind) {
     mode = kind;
-    target = clampUnits(units);
+    target = units;
   }
 
   // --- one gesture, whatever kind of pointing device produced it ---
@@ -334,9 +337,16 @@ export function createScrollDriver(element, { getTotalUnits }) {
         // re-derived from a number that is still creeping.
         if (Math.abs(target - position) < SETTLE_PX / viewportHeight()) position = target;
       }
-      // The story can grow or shrink underneath an in-flight gesture.
-      position = clampUnits(position);
-      target = clampUnits(target);
+
+      // The ends are walls, not brakes. Because the target is left unclamped,
+      // motion aimed past an end keeps its full speed the whole way there and
+      // simply stops on arrival — no deceleration into the boundary, no
+      // rubber-band, no bounce. Collapsing the target onto the clamped position
+      // is what ends it, and it is also what makes a reversal respond
+      // instantly: there is never an overshoot left to unwind first. (The same
+      // clamp catches a story that grows or shrinks under the viewer.)
+      const bounded = clampUnits(position);
+      if (bounded !== position) position = target = bounded;
       return position;
     },
 

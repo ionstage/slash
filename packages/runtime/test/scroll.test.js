@@ -177,6 +177,41 @@ test('the position never leaves [0, total]', () => {
   assert.equal(frames(h, 3), TOTAL);
 });
 
+test('a flick into the end runs at full speed and stops there', () => {
+  const h = harness();
+  h.driver.jumpTo(TOTAL - 1);
+  drag(h, [180, 600], [180, 200]); // a throw worth ~2.1 units, into a 1-unit gap
+  release(h, [180, 200]);
+
+  // Arrives under its own speed. Easing into a clamped target would instead
+  // creep in asymptotically and still be short of the end seconds later.
+  assert.equal(frames(h, 0.5), TOTAL);
+});
+
+test('an end stops the story without resisting it — reversing responds at once', () => {
+  const h = harness();
+  h.driver.jumpTo(TOTAL - 1);
+  drag(h, [180, 600], [180, 200]); // overshoot the end hard
+  release(h, [180, 200]);
+  assert.equal(frames(h, 1), TOTAL);
+
+  // No overshoot was banked, so the way back starts immediately and travels
+  // exactly as far as it was asked to.
+  h.element.emit('wheel', wheel(-160));
+  assert.ok(Math.abs(frames(h, 1) - (TOTAL - 160 / VH)) < 1e-6);
+});
+
+test('the top behaves the same way', () => {
+  const h = harness();
+  h.driver.jumpTo(0.5);
+  drag(h, [180, 200], [180, 600]); // throw backwards, past the start
+  release(h, [180, 600]);
+  assert.equal(frames(h, 0.5), 0);
+
+  h.element.emit('wheel', wheel(160));
+  assert.ok(Math.abs(frames(h, 1) - 160 / VH) < 1e-6);
+});
+
 test('a story that shrinks under the viewer pulls the position back', () => {
   const h = harness();
   h.driver.jumpTo(TOTAL);

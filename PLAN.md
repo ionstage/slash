@@ -694,12 +694,37 @@ Position being viewport-relative rather than a pixel offset also means a device
 rotation now **preserves the story position exactly**, where native scrolling
 kept a `scrollTop` that no longer meant the same thing.
 
+## The ends are walls, not brakes
+
+Confirmed with the owner: **no braking and no resistance at the beginning or end
+of the content.** No rubber-band, no spring-back, and no deceleration on the way
+into a boundary — motion arrives at whatever speed it had and stops.
+
+Half of that was already true (a drag past an end did nothing, and the excess
+was discarded rather than banked), but the other half was not, and the cause was
+subtle: clamping the _target_ meant a flick aimed past an end had its throw
+shortened, so the ease decelerated into the boundary instead of running into it.
+The distances matched; the arrival did not. A throw with 1 unit of story left
+took ~4 s to asymptotically settle onto the end, where it should have hit it in
+~0.35 s and stopped.
+
+So the target is now left unclamped and the **position** is clamped instead. On
+arrival the target collapses onto the clamped position, which is what ends the
+motion — and equally, what keeps a reversal instant, since no overshoot was ever
+stored to unwind. One condition in `update()` does both, and also catches a
+story that grows or shrinks under the viewer.
+
+Worth keeping in mind: the tests for this must distinguish _arriving_ from
+_easing in_, since both end at the same number. They assert the position is
+exactly at the boundary within 0.5 s; all three fail against the clamped-target
+version.
+
 ## Changes by area
 
 - **runtime**: `scroll.js` rewritten as a virtual scroller — touch, mouse/pen
   drag, wheel (cancelled now that its vertical component is ours, except
   ctrl+wheel, which is left to the browser's zoom), ↑/↓,
-  PageUp/PageDown, space, Home/End; flick momentum, clamping to
+  PageUp/PageDown, space, Home/End; flick momentum, hard walls at
   `[0, getTotalUnits()]`, and the document pinned (`overflow: hidden`,
   `touch-action: none`, `overscroll-behavior-y: none`) and restored on dispose.
   `update()` now takes `dt`. `world-player.js` passes it.
@@ -722,7 +747,7 @@ kept a `scrollTop` that no longer meant the same thing.
   Input_ (with its costs stated), and the two _Horizontal Rotation_ bullets that
   said "natively" are corrected; `README.md` and `docs/ai-authoring.md` say the
   page never scrolls.
-- **tests**: new `test/scroll.test.js` (22 tests). The whole feel is now our
+- **tests**: new `test/scroll.test.js` (25 tests). The whole feel is now our
   arithmetic, so all of it is testable in Node — drag mapping and deadband,
   wheel smoothing and unit conversion, clamping, resize invariance, the flick
   coast decelerating to a full stop, the stale-release rule, contact killing a
@@ -732,7 +757,7 @@ kept a `scrollTop` that no longer meant the same thing.
 
 ## Verified
 
-`npm test` (61, of which 22 are the new scroll-driver tests), `npm run validate`,
+`npm test` (64, of which 25 are the new scroll-driver tests), `npm run validate`,
 `npm run lint`, `npm run build` all green.
 
 Desktop drive (Chromium 1000×800, `?sync`): a 500 px wheel event moved the story
@@ -765,6 +790,14 @@ finger lands:  2.1766 -> 2.1766 -> 2.1766 -> 2.1766 -> 2.1766 -> 2.1766
 Frozen on contact and staying frozen — the spec's "touching the world stops its
 inertia", now honoured by this runtime rather than by the browser.
 
+The ends, driven in Chromium at 224 ms frames. Parked 0.428 units short of the
+end of a 14-unit story, a hard throw was **already at exactly 14 on the first
+frame** and stayed there — where the clamped-target version would have covered
+about a third of that gap in the same frame and crept in over the following
+seconds. The reverse gesture moved on the very first frame (14 → 13.677), so
+nothing was banked. At the start, a backward throw held exactly 0 with no bounce
+and reversed instantly (0 → 0.3248). `End` and `Home` land exactly on 14 and 0.
+
 One diagonal flick moved both axes at once (units 3.93 → 5.492, yaw 0° → 502.3°);
 pure gestures moved only their own axis. Throughout, `scrollY` stayed 0, the
 document's scroll range stayed 0, `body` was `overflow: hidden`, `#app` was
@@ -793,9 +826,9 @@ those frame times, but the feel constants (`TAU`, `KEY_RATE`, `PAGE_UNITS`,
 - **Feel tuning on real hardware** — the constants are a considered first cut,
   not a tuned one. Most likely to want adjustment: `TAU.flick` (0.55 s) and
   `FLICK_MAX`, which together set how far a hard throw travels.
-- **Rubber-band at the ends.** Hitting 0 or `length` stops dead. Native touch
-  surfaces give a little and spring back, which also signals "this is the end"
-  rather than "input stopped working". Cheap to add on top of the target model.
+- ~~**Rubber-band at the ends.**~~ **Decided against** (owner, same session):
+  no braking and no resistance at either end. See _The ends are walls_ below —
+  this is now specified behaviour with tests, not a deferral.
 - **Accessibility of a non-native scroller.** The page no longer exposes a
   scrollbar or a native scroll range, so anything a viewer's assistive or input
   settings apply to native scrollers (scroll-to-position, some switch/pointer

@@ -307,8 +307,13 @@ to look at the scene from another side.
   Independence is about what each component controls, not about taking turns.
 - **A scroll in progress never suspends turning.** Horizontal drag keeps turning
   the view while the world is scrolling — under the finger or coasting on
-  momentum, and whichever direction the gesture began in. The horizontal axis is
-  always live.
+  inertia after the finger has lifted, and whichever direction the gesture began
+  in. The horizontal axis is always live.
+- **Touching the world stops its inertia.** A swipe that lands while the world
+  is still coasting turns the view, but the leftover vertical motion ends on
+  contact, exactly as on any native scroll surface — putting a finger down is
+  also how the viewer stops a coasting descent. Only the coast ends; the swipe
+  itself is unaffected.
 - **Free and persistent.** Any angle, both directions, no limit and no snapping.
   The angle stays where the viewer left it while they keep scrolling, until they
   swipe again.

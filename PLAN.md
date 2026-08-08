@@ -533,8 +533,21 @@ constraint, and it drives one non-obvious choice:
 
 **The horizontal axis is always live** (confirmed as a requirement by the
 owner): a scroll in progress never suspends turning — under the finger or
-coasting on momentum, and whichever direction the gesture began in. Two things
-protect that beyond the touch-event choice above:
+coasting on inertia after the finger has lifted, and whichever direction the
+gesture began in.
+
+Confirmed with the owner on the one thing that cannot be had for free there:
+every browser cancels its own scroll momentum the instant a finger touches
+down, so a swipe landing mid-coast turns the view but ends the leftover
+vertical motion. **The owner's call is to let the touch stop the coast** —
+native behaviour everywhere, and the same contact is how a viewer stops a
+coasting descent. Carrying the coast through the gesture would mean measuring
+scroll velocity and hand-rolling the remaining momentum while the finger is
+down; rejected as not worth the loss of tap-to-stop and the risk of visibly
+fighting the browser.
+
+Two things protect the always-live requirement beyond the touch-event choice
+above:
 
 - A fresh single-finger `touchstart` always takes over the gesture. A dropped
   `touchend` would otherwise leave the driver holding a gesture that has ended
@@ -583,12 +596,22 @@ pure gestures each moved only their own axis.
 
 Always-live horizontal axis, same emulation, real touch gestures:
 
-| path                                             | result                                     |
-| ------------------------------------------------ | ------------------------------------------ |
-| finger goes down, scrolls, _then_ moves sideways | yaw 0° → −83.9°, scroll ran on 2702 → 2762 |
-| new gesture during momentum coasting             | Δyaw −101.4° while Δscroll +335            |
-| second finger mid-gesture, then the first lifts  | no stuck state                             |
-| plain horizontal drag after 10 mixed gestures    | Δyaw −101.4°                               |
+| path                                             | result                                             |
+| ------------------------------------------------ | -------------------------------------------------- |
+| finger goes down, scrolls, _then_ moves sideways | yaw 0° → −83.9°, scroll ran on 2702 → 2762         |
+| swipe during a browser-driven vertical animation | yaw −101.4° → −202.7° while scroll ran 1678 → 5034 |
+| second finger mid-gesture, then the first lifts  | no stuck state                                     |
+| plain horizontal drag after 10 mixed gestures    | Δyaw −101.4°                                       |
+
+**Not verifiable in this environment: real touch inertia.** Touches dispatched
+through CDP (`Input.dispatchTouchEvent`) leave no fling — a flick that moves the
+page 400 px stops dead on lift, `scrollY` unchanged over the following 500 ms.
+So any claim about a swipe landing _during a coast_ is untested here; the row
+above substitutes a browser-driven smooth scroll, which is genuine vertical
+motion in progress with no finger down, and turning works throughout it. What
+can be said structurally is that the swipe driver never reads scroll state, so
+there is nothing for a coasting page to gate. Confirming the real fling needs a
+physical device.
 
 ## Deferred
 

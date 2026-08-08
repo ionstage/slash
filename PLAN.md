@@ -498,28 +498,69 @@ rotation about a vertical axis cannot change a Y coordinate, and `travel`,
   (compose front-on, but surround the path — a half-turn must not reveal an
   empty side).
 
-## Axis separation (how the two inputs stay apart)
+## Independent, not exclusive
 
-1. The canvas host is `touch-action: pan-y` (already set by `scroll.js`), so the
-   browser keeps vertical touch panning: vertical drags scroll natively and
-   arrive as `pointercancel`.
-2. A gesture becomes a rotation only after 8 px of travel that is more
-   horizontal than vertical; otherwise the pointer is released back to the page.
-   Exactly those 8 px are ever spent deciding, whatever the browser's move-event
-   granularity.
-3. Wheel events are consumed only when `|deltaX| > |deltaY|` — vertical
-   wheel/trackpad scrolling stays fully native.
-4. `yaw` reaches only `cameraPose`, and only through `orbit`.
+Confirmed with the owner after the first cut: **axis separation is not
+required — horizontal and vertical movement may occur simultaneously.** A
+gesture is therefore never _classified_ as a scroll or a turn; it is
+**decomposed**. Its vertical component scrolls natively while its horizontal
+component turns the view, in the same gesture and the same frame. What stays
+separate is what each component controls: `yaw` reaches only `cameraPose`, and
+only through `orbit`, so the horizontal component still cannot move the world
+vertically.
+
+Making that work while keeping **native** vertical scroll is the whole design
+constraint, and it drives one non-obvious choice:
+
+- **Touch is read from touch events, not pointer events.** When the browser
+  claims a gesture for native scrolling it fires `pointercancel` and no further
+  pointer events arrive — so a pointer-based driver can only ever see gestures
+  the browser declined to scroll. `touchmove`, by contrast, keeps being
+  dispatched throughout a native scroll (this is exactly why passive listeners
+  exist). Reading fingers from touch events gives the sideways travel while the
+  browser keeps the vertical travel. Mouse and pen stay on pointer events, which
+  the browser never claims.
+- **Wheel events are never cancelled.** `preventDefault()` on a wheel event
+  cancels the whole event, vertical component included, so the old
+  `|deltaX| > |deltaY|` gate is gone. Horizontal deltas rotate; the same event
+  keeps scrolling the page. Back-navigation on horizontal overscroll is
+  neutralised with `overscroll-behavior-x: none` (set and restored by the
+  driver) instead.
+- **The remaining gates are noise gates, not axis gates.** A drag ignores its
+  first 8 px of horizontal travel (hand wobble in a vertical scroll should not
+  slowly spin the world), and wheels ignore 1 px per event of trackpad jitter.
+  Neither looks at the vertical component.
+
+Known limitation, browser-imposed rather than ours: with `touch-action: pan-y`
+the browser decides at the _start_ of a touch whether that gesture may scroll.
+A gesture that begins horizontally will not scroll even if it later turns
+vertical (the finger must be lifted first). Removing that would mean taking over
+vertical scrolling by hand and losing native momentum — the project's stated
+#1 product risk — so it is deliberately not done.
 
 ## Verified
 
-`npm test` (34, incl. 11 new gesture tests and 4 new mapping tests),
-`npm run validate`, `npm run lint`, `npm run build` all green. Browser drive
-(Chromium, `?sync`): a rightward drag turned the view −58.4° with `camera.y`
-and all four layer offsets **unchanged to the digit**; scrolling on from there
-moved `camera.y` −21.6 → −39.6 with `yaw` held; a leftward drag carried the view
-through the front and out to +60°; a steep diagonal drag scrolled without any
-rotation; ← / → turned the view and stopped dead on release.
+`npm test` (36, incl. 13 gesture tests and 4 new mapping tests),
+`npm run validate`, `npm run lint`, `npm run build` all green.
+
+Desktop drive (Chromium, `?sync`): a rightward drag turned the view −58.4° with
+`camera.y` and all four layer offsets **unchanged to the digit**; scrolling on
+from there moved `camera.y` −21.6 → −39.6 with `yaw` held; a leftward drag
+carried the view through the front and out to +60°; ← / → turned the view and
+stopped dead on release.
+
+Touch drive (Pixel 7 emulation, real `Input.dispatchTouchEvent` gestures) —
+simultaneity confirmed on the platform that matters:
+
+| gesture          | scrollY  | camera.y  | yaw        |
+| ---------------- | -------- | --------- | ---------- |
+| start            | 2517     | −15.6     | 0°         |
+| diagonal swipe   | **2764** | **−17.4** | **−57.7°** |
+| vertical swipe   | 3069     | −19.6     | −57.7°     |
+| horizontal swipe | 3069     | −19.6     | −185.2°    |
+
+One diagonal swipe moved both axes at once with native scrolling intact; the
+pure gestures each moved only their own axis.
 
 ## Deferred
 

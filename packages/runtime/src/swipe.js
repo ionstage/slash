@@ -7,18 +7,30 @@
  * look-at point at unchanged height. This module owns *only* the gesture and
  * its feel; it knows nothing about the world.
  *
- * The two axes never mix:
+ * **The axes are independent, not exclusive.** One gesture can do both: a
+ * diagonal swipe scrolls by its vertical component and turns by its horizontal
+ * one, at the same time. Only the decomposition is separate — the horizontal
+ * component never moves the world vertically (`yaw` reaches nothing but the
+ * camera orbit) and the vertical component never turns it.
  *
- *   - The canvas host is `touch-action: pan-y` (set by `scroll.js`), so the
- *     browser keeps vertical touch panning for itself — a vertical drag scrolls
- *     natively and never reaches us (it arrives as `pointercancel`).
- *   - A gesture only becomes a rotation once it has travelled `AXIS_LOCK_PX`
- *     and is more horizontal than vertical; a mostly-vertical drag is released
- *     back to the page.
- *   - Wheel events are consumed only when `|deltaX| > |deltaY|`, so vertical
- *     wheel/trackpad scrolling stays entirely native.
- *   - Nothing here writes scroll position, and `yaw` cannot move anything
- *     vertically (see `orbit` in `world-map.js`).
+ * Reading horizontal movement *while the page scrolls* is why touch is handled
+ * through touch events rather than pointer events: when the browser claims a
+ * gesture for native scrolling it fires `pointercancel` and no further pointer
+ * events arrive, but `touchmove` keeps being dispatched throughout the scroll.
+ * So the finger's sideways travel is still ours while its vertical travel is
+ * the browser's. Pointer events handle mouse and pen, which the browser never
+ * claims.
+ *
+ * Nothing here writes scroll position, and the horizontal axis is gated only
+ * against noise, never against the vertical one:
+ *
+ *   - A drag ignores its first `WOBBLE_PX` of horizontal travel, so the hand
+ *     wobble in a vertical scroll does not slowly spin the world. Exactly that
+ *     much is ever ignored, whatever the browser's move-event granularity.
+ *   - Wheel events are never cancelled — cancelling one would take its vertical
+ *     component with it — so horizontal trackpad travel rotates while the same
+ *     gesture scrolls. `overscroll-behavior-x` (not `preventDefault`) keeps
+ *     horizontal overscroll from triggering back-navigation.
  *
  * Feel: the drag is 1:1 with the finger ("grab the world and spin it") and a
  * flick coasts to a stop with exponential decay. Rotation is unbounded — a
@@ -36,7 +48,8 @@ export function createSwipeDriver(element, { degreesPerWidth = 180 } = {}) {
   const win = doc.defaultView ?? window;
 
   const DEG = Math.PI / 180;
-  const AXIS_LOCK_PX = 8; // travel before a drag is judged horizontal
+  const WOBBLE_PX = 8; // horizontal travel ignored at the start of a drag
+  const WHEEL_NOISE_PX = 1; // per-event horizontal deadband for wheels
   const COAST_TAU = 0.22; // s, e-folding time of the flick coast
   const COAST_MIN = 0.02; // rad/s below which the coast stops
   const COAST_MAX = 12; // rad/s cap on a flick
@@ -52,81 +65,124 @@ export function createSwipeDriver(element, { degreesPerWidth = 180 } = {}) {
   let yaw = 0;
   let omega = 0; // rad/s, the post-flick coast
   /** @type {number | null} */
-  let pointerId = null;
-  let rotating = false; // true once the gesture is judged horizontal
+  let dragId = null; // pointerId / touch identifier of the live gesture
+  let tracking = false; // past the wobble deadband
   let startX = 0;
-  let startY = 0;
   let lastX = 0;
   let lastT = 0;
   let velocity = 0; // px/s, smoothed over recent moves
   /** @type {Set<string>} */
   const keys = new Set();
 
-  function onPointerDown(ev) {
-    if (pointerId !== null) return; // one gesture at a time (ignore extra fingers)
-    if (ev.pointerType === 'mouse' && ev.button !== 0) return;
-    pointerId = ev.pointerId;
-    rotating = false;
-    startX = lastX = ev.clientX;
-    startY = ev.clientY;
-    lastT = ev.timeStamp;
+  // --- one gesture, whatever kind of pointing device produced it ---
+
+  function beginDrag(id, x, t) {
+    if (dragId !== null) return; // one gesture at a time (ignore extra fingers)
+    dragId = id;
+    tracking = false;
+    startX = lastX = x;
+    lastT = t;
     velocity = 0;
   }
 
-  function onPointerMove(ev) {
-    if (ev.pointerId !== pointerId) return;
+  /** @returns {boolean} whether this move produced rotation. */
+  function moveDrag(id, x, t) {
+    if (id !== dragId) return false;
 
-    if (!rotating) {
-      const totalX = ev.clientX - startX;
-      const totalY = ev.clientY - startY;
-      if (Math.abs(totalX) < AXIS_LOCK_PX) return; // still inside the dead zone
-      if (Math.abs(totalX) <= Math.abs(totalY)) {
-        pointerId = null; // a vertical drag: it belongs to the page
-        return;
-      }
-      // Lock in and rotate from the point where the threshold was crossed, not
-      // from this event — so exactly AXIS_LOCK_PX is ever spent deciding,
-      // however coarse the browser's move events are.
-      rotating = true;
+    if (!tracking) {
+      const totalX = x - startX;
+      if (Math.abs(totalX) < WOBBLE_PX) return false;
+      // Start rotating from where the deadband was crossed, not from this
+      // event, so exactly WOBBLE_PX is ever spent — however coarse the
+      // browser's move events are.
+      tracking = true;
       omega = 0; // grabbing stops the coast
-      lastX = startX + Math.sign(totalX) * AXIS_LOCK_PX;
+      lastX = startX + Math.sign(totalX) * WOBBLE_PX;
     }
 
-    const dx = ev.clientX - lastX;
-    const dt = Math.max((ev.timeStamp - lastT) / 1000, 1e-4);
+    const dx = x - lastX;
+    const dt = Math.max((t - lastT) / 1000, 1e-4);
     // Drag right pushes the world right, which walks the camera left (negative
     // yaw) — the pivot is between them. See `orbit` in world-map.js.
     yaw -= dx * radiansPerPixel();
     velocity = velocity * 0.6 + (dx / dt) * 0.4;
-    lastX = ev.clientX;
-    lastT = ev.timeStamp;
-    ev.preventDefault(); // suppress mouse text-selection during the drag
+    lastX = x;
+    lastT = t;
+    return true;
   }
 
-  function onPointerUp(ev) {
-    if (ev.pointerId !== pointerId) return;
-    if (rotating) {
+  function endDrag(id, t, throwable = true) {
+    if (id !== dragId) return;
+    if (tracking && throwable) {
       // A finger held still before release means "stop here", not "throw".
-      const stale = ev.timeStamp - lastT > STALE_MS;
+      const stale = t - lastT > STALE_MS;
       const flick = stale ? 0 : -velocity * radiansPerPixel();
       omega = Math.max(-COAST_MAX, Math.min(COAST_MAX, flick));
     }
-    pointerId = null;
-    rotating = false;
+    dragId = null;
+    tracking = false;
+  }
+
+  // --- touch: read sideways travel even while the browser scrolls ---
+
+  function findTouch(list, id) {
+    for (let i = 0; i < list.length; i++) if (list[i].identifier === id) return list[i];
+    return null;
+  }
+
+  function onTouchStart(ev) {
+    const t = ev.changedTouches[0];
+    if (t) beginDrag(t.identifier, t.clientX, ev.timeStamp);
+  }
+
+  function onTouchMove(ev) {
+    const t = findTouch(ev.touches, dragId);
+    if (t) moveDrag(t.identifier, t.clientX, ev.timeStamp);
+  }
+
+  function onTouchEnd(ev) {
+    const t = findTouch(ev.changedTouches, dragId);
+    if (t) endDrag(t.identifier, ev.timeStamp);
+  }
+
+  function onTouchCancel(ev) {
+    const t = findTouch(ev.changedTouches, dragId);
+    if (t) endDrag(t.identifier, ev.timeStamp, false);
+  }
+
+  // --- mouse / pen: pointer events, which the browser never takes away ---
+
+  function onPointerDown(ev) {
+    if (ev.pointerType === 'touch') return; // fingers come in as touch events
+    if (ev.pointerType === 'mouse' && ev.button !== 0) return;
+    beginDrag(ev.pointerId, ev.clientX, ev.timeStamp);
+  }
+
+  function onPointerMove(ev) {
+    if (ev.pointerType === 'touch') return;
+    // Suppress text selection only once the drag is actually turning.
+    if (moveDrag(ev.pointerId, ev.clientX, ev.timeStamp)) ev.preventDefault();
+  }
+
+  function onPointerUp(ev) {
+    if (ev.pointerType === 'touch') return;
+    endDrag(ev.pointerId, ev.timeStamp);
   }
 
   function onPointerCancel(ev) {
-    if (ev.pointerId !== pointerId) return;
-    pointerId = null; // the browser took the gesture (native vertical scroll)
-    rotating = false;
+    if (ev.pointerType === 'touch') return;
+    endDrag(ev.pointerId, ev.timeStamp, false);
   }
 
   function onWheel(ev) {
-    if (Math.abs(ev.deltaX) <= Math.abs(ev.deltaY)) return; // vertical: leave it native
-    ev.preventDefault();
-    const px = ev.deltaMode === 1 ? ev.deltaX * LINE_PX : ev.deltaX;
+    // Soft deadband: a deliberate vertical scroll on a trackpad still emits a
+    // pixel or two of horizontal jitter, which would otherwise drift the view.
+    const raw = ev.deltaMode === 1 ? ev.deltaX * LINE_PX : ev.deltaX;
+    const px = Math.sign(raw) * Math.max(0, Math.abs(raw) - WHEEL_NOISE_PX);
+    if (px === 0) return;
     // Wheel deltas are the negation of finger travel, so this matches the drag.
-    // Trackpads emit their own momentum tail; no extra coast.
+    // Trackpads emit their own momentum tail; no extra coast. The event is left
+    // uncancelled so its vertical component keeps scrolling the page.
     yaw += px * radiansPerPixel();
     omega = 0;
   }
@@ -148,11 +204,22 @@ export function createSwipeDriver(element, { degreesPerWidth = 180 } = {}) {
     keys.clear();
   }
 
+  // Horizontal overscroll would otherwise trigger the browser's back-navigation
+  // gesture. Neutralised here rather than by cancelling wheel events, which
+  // would cancel their vertical scrolling too.
+  const root = doc.documentElement;
+  const prevOverscrollX = root.style.overscrollBehaviorX;
+  root.style.overscrollBehaviorX = 'none';
+
+  element.addEventListener('touchstart', onTouchStart, { passive: true });
+  win.addEventListener('touchmove', onTouchMove, { passive: true });
+  win.addEventListener('touchend', onTouchEnd, { passive: true });
+  win.addEventListener('touchcancel', onTouchCancel, { passive: true });
   element.addEventListener('pointerdown', onPointerDown);
   win.addEventListener('pointermove', onPointerMove, { passive: false });
   win.addEventListener('pointerup', onPointerUp);
   win.addEventListener('pointercancel', onPointerCancel);
-  element.addEventListener('wheel', onWheel, { passive: false });
+  element.addEventListener('wheel', onWheel, { passive: true });
   win.addEventListener('keydown', onKeyDown);
   win.addEventListener('keyup', onKeyUp);
   win.addEventListener('blur', onBlur);
@@ -168,7 +235,7 @@ export function createSwipeDriver(element, { degreesPerWidth = 180 } = {}) {
       if (held !== 0) {
         yaw += held * KEY_RATE * dt;
         omega = 0;
-      } else if (!rotating && omega !== 0) {
+      } else if (!tracking && omega !== 0) {
         yaw += omega * dt;
         omega *= Math.exp(-dt / COAST_TAU);
         if (Math.abs(omega) < COAST_MIN) omega = 0;
@@ -181,6 +248,11 @@ export function createSwipeDriver(element, { degreesPerWidth = 180 } = {}) {
     },
 
     dispose() {
+      root.style.overscrollBehaviorX = prevOverscrollX;
+      element.removeEventListener('touchstart', onTouchStart);
+      win.removeEventListener('touchmove', onTouchMove);
+      win.removeEventListener('touchend', onTouchEnd);
+      win.removeEventListener('touchcancel', onTouchCancel);
       element.removeEventListener('pointerdown', onPointerDown);
       win.removeEventListener('pointermove', onPointerMove);
       win.removeEventListener('pointerup', onPointerUp);

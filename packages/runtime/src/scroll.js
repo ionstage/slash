@@ -47,7 +47,9 @@ export function createScrollDriver(element, { getTotalUnits }) {
   html.style.overflow = 'visible';
   body.style.overflow = 'visible';
   body.style.height = 'auto';
-  // Vertical drags scroll the page natively; horizontal drags are ours.
+  // Vertical panning stays the browser's, so the scroll feel is native.
+  // Horizontal travel is the swipe driver's (`swipe.js`), which reads it from
+  // touch events so a gesture can turn the view *while* this scrolls.
   element.style.touchAction = 'pan-y';
   for (const c of canvases) c.style.touchAction = 'pan-y';
 

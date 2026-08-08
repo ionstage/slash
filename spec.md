@@ -177,8 +177,10 @@ It is the primary navigation axis: scrolling down advances the story.
 Horizontal swipe **turns the view around the content** — see _Horizontal
 Rotation_ under the Stage System.
 
-The two axes are independent. Swiping never moves the story forward or back,
-and scrolling never turns the view.
+The two axes are independent but not exclusive. Swiping never moves the story
+forward or back, and scrolling never turns the view — but both can happen at
+once: a diagonal gesture advances the story by its vertical component and turns
+the view by its horizontal one, simultaneously.
 
 ---
 
@@ -299,6 +301,10 @@ to look at the scene from another side.
   change a vertical position. Vertical movement stays exclusively the scroll
   axis's job; per-layer parallax offsets and every progress-keyed track are
   driven by scroll alone.
+- **Both axes may move at once.** A gesture is not classified as either a scroll
+  or a turn: it is decomposed. Its vertical component scrolls natively while its
+  horizontal component turns the view, in the same gesture and the same frame.
+  Independence is about what each component controls, not about taking turns.
 - **Free and persistent.** Any angle, both directions, no limit and no snapping.
   The angle stays where the viewer left it while they keep scrolling, until they
   swipe again.

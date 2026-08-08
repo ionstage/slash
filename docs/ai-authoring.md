@@ -38,9 +38,10 @@ Generated content must pass this before it is usable.
 - **Horizontal swipes turn the view.** A swipe left/right orbits the camera
   around the vertical axis through its look-at point, at unchanged height — the
   content turns on a circular path, like a turntable. The rotation is free (any
-  angle, both directions), persists while scrolling, and is **completely
-  independent of the vertical axis**: it never changes `units`, `travel`, `g`,
-  layer offsets or anything keyframed over `g`. The only knob is
+  angle, both directions), persists while scrolling, and is **independent of the
+  vertical axis**: it never changes `units`, `travel`, `g`, layer offsets or
+  anything keyframed over `g`. Independent, not exclusive — a diagonal swipe
+  scrolls and turns at the same time. The only knob is
   `rotation.degreesPerWidth` (degrees per full-width drag, default 180) — the
   swipe-feel counterpart of `travelPerUnit`. You do not author the angle; the
   viewer chooses it.

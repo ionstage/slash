@@ -10,7 +10,8 @@ move-the-camera vs. move-the-world rationale.
 Horizontal swipes turn the view: the camera orbits a circular path around what
 it is looking at, at its current height, so you can spin the world like a
 turntable and see the scene from another side. Rotation and descent are
-independent — swiping never changes vertical position, scrolling never rotates.
+independent but not exclusive — a gesture's horizontal component turns while its
+vertical component scrolls, in the same swipe.
 
 **Current scope.** The project is a polished runtime focused on scroll
 behavior and scroll↔world synchronization. Its two inputs are vertical scroll
@@ -35,7 +36,8 @@ Run `npm run dev:runtime` and open `/?sync&stats`. The `sync` overlay reports
 (`travel`, metres), `camera.y`, the swipe rotation `yaw`, and each parallax
 layer's live Y offset — so the continuous travel and per-layer parallax are
 directly observable. Swipe (or drag, or hold ← / →) and watch `yaw` change
-while `camera.y` and every layer offset stay put: the axes are independent.
+while `camera.y` and every layer offset stay put; swipe diagonally and watch
+both move at once.
 
 ## Commands
 

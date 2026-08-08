@@ -20,6 +20,15 @@
       #app {
         position: fixed;
         inset: 0;
+        /* 100lvh sizes to the toolbar-collapsed viewport up front: at
+           load the toolbar simply occludes the bottom of an
+           already-correctly-sized canvas, and collapsing it later just
+           reveals that (already rendered) area rather than growing the
+           container into it. No resize fires for toolbar show/hide
+           either way (100vh is the fallback for browsers without lvh
+           support). */
+        height: 100vh;
+        height: 100lvh;
         touch-action: none;
       }
       #app canvas {

@@ -441,3 +441,90 @@ reaching the ends exactly (14/14, travel 84 m).
 - **Origin rebasing** for very long worlds (camera coords grow); fine at sample
   scale.
 - **Lazy streaming by depth** — the whole world loads up front (small sample).
+
+---
+
+# R-series — Horizontal rotation (2026-08)
+
+The specification gained a second input axis: **horizontal swipes rotate the
+content left or right around a circular path, centred on the content, at its
+current vertical height**. Vertical scrolling keeps controlling vertical
+movement exactly as before, and swipes must not affect vertical position.
+
+Confirmed decisions:
+
+- **Orbit the camera**, not the world — consistent with the W-series
+  "move the camera, world fixed" decision. Objects keep true world coordinates,
+  parallax layers and the rig need no special handling, and the result is
+  visually identical to spinning the world.
+- **Free drag + momentum**: the drag tracks the finger 1:1 and a flick coasts to
+  a stop. Any resting angle; no stepping or snapping.
+- **Camera-following actors stay world-oriented** — turning walks the viewer
+  around the traveler and shows a different side, rather than pinning it to the
+  screen. (Falls out for free: the rig does not rotate.)
+- **Free 360°, persistent** — unbounded in both directions, and the angle stays
+  where the viewer left it while scrolling continues.
+
+## The model
+
+A second scalar joins `units`, and enters the mapping in exactly one place:
+
+```
+yaw    = accumulated swipe rotation (radians, unbounded)
+camera = orbit(cameraPos, lookAtPoint, yaw)     // horizontal circle, Y untouched
+```
+
+`orbit` rotates about the vertical axis through the camera's (drifted) look-at
+point, so the pivot never moves, the radius is preserved, and the height is
+returned unchanged. **Axis independence is structural, not a convention**: a
+rotation about a vertical axis cannot change a Y coordinate, and `travel`,
+`layerOffset`, `rigOffset` and every `g`-keyed track never see `yaw`.
+
+## Changes by area
+
+- **runtime**: new `swipe.js` input driver (pointer drag with axis locking,
+  flick inertia, trackpad `deltaX`, ← / → keys) alongside `scroll.js`;
+  `world-map.js` gains `orbit()` and a `yaw` argument on `cameraPose()`;
+  `world-player.js` feeds `swipe.update(dt)` into the pose and reports `yaw` on
+  the progress payload; HUD `?sync` overlay shows `yaw` (folded to ±180° plus a
+  turn count) and the hint reads "Scroll ↓ · Swipe ↔ to turn".
+- **schema**: optional `rotation.degreesPerWidth` on `world.json` (default 180)
+  — the swipe-feel knob, mirroring `travelPerUnit` for scroll. No format bump:
+  the field is additive and every existing world stays valid.
+- **docs**: `spec.md` gains _Horizontal Rotation_ under the Stage System and
+  rewrites _Horizontal Switching_ (the swipe axis now drives rotation; character
+  viewpoint switching stays vision, unbuilt); `README.md` and
+  `docs/ai-authoring.md` describe the second axis and the authoring implication
+  (compose front-on, but surround the path — a half-turn must not reveal an
+  empty side).
+
+## Axis separation (how the two inputs stay apart)
+
+1. The canvas host is `touch-action: pan-y` (already set by `scroll.js`), so the
+   browser keeps vertical touch panning: vertical drags scroll natively and
+   arrive as `pointercancel`.
+2. A gesture becomes a rotation only after 8 px of travel that is more
+   horizontal than vertical; otherwise the pointer is released back to the page.
+   Exactly those 8 px are ever spent deciding, whatever the browser's move-event
+   granularity.
+3. Wheel events are consumed only when `|deltaX| > |deltaY|` — vertical
+   wheel/trackpad scrolling stays fully native.
+4. `yaw` reaches only `cameraPose`, and only through `orbit`.
+
+## Verified
+
+`npm test` (34, incl. 11 new gesture tests and 4 new mapping tests),
+`npm run validate`, `npm run lint`, `npm run build` all green. Browser drive
+(Chromium, `?sync`): a rightward drag turned the view −58.4° with `camera.y`
+and all four layer offsets **unchanged to the digit**; scrolling on from there
+moved `camera.y` −21.6 → −39.6 with `yaw` held; a leftward drag carried the view
+through the front and out to +60°; a steep diagonal drag scrolled without any
+rotation; ← / → turned the view and stopped dead on release.
+
+## Deferred
+
+- **Rotation-aware composition tooling** — nothing warns an author that a stage
+  is a flat frontage that turning reveals as empty. An editor concern (N4/M2
+  territory), not a runtime one.
+- **Character-viewpoint switching** on the swipe axis (W/S-series deferral)
+  would now collide with rotation; it needs a different gesture or a mode.

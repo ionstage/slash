@@ -5,13 +5,16 @@
 > **Current scope (2026-08).** This document describes the full vision. The
 > current build is a deliberately narrowed **runtime** focused on scroll
 > behavior and scroll↔world synchronization, playing **one continuous vertical
-> world** (see _Connected Stages_ below). The world is **passive**: vertical
-> scroll is the only input. Deferred for now (preserved in git history): the
-> authoring **Editor**, horizontal **viewpoint** switching (swipe to switch
-> characters — allowed by the vision, not yet built), story **branching**, the
-> **State** and **Event** systems, **Audio**, automatic **Playback Mode**,
-> **AI** generation, and the **export/optimization** pipeline. Sections below
-> that describe those systems are vision, not the current build.
+> world** (see _Connected Stages_ below). It takes **two inputs**: vertical
+> scroll to descend, and horizontal swipe to **turn the view** around the
+> content (see _Horizontal Rotation_ below). The world is otherwise
+> **passive** — no taps, events, or state. Deferred for now (preserved in git
+> history): the authoring **Editor**, horizontal **viewpoint** switching (swipe
+> to switch characters — allowed by the vision, superseded on the swipe axis by
+> rotation, not built), story **branching**, the **State** and **Event**
+> systems, **Audio**, automatic **Playback Mode**, **AI** generation, and the
+> **export/optimization** pipeline. Sections below that describe those systems
+> are vision, not the current build.
 
 ## Overview
 
@@ -171,8 +174,11 @@ User controls progression through:
 
 Vertical scroll uses the browser's native scrolling.
 It is the primary navigation axis: scrolling down advances the story.
-Horizontal swipe is reserved for viewpoint switching (swipe to switch
-characters).
+Horizontal swipe **turns the view around the content** — see _Horizontal
+Rotation_ under the Stage System.
+
+The two axes are independent. Swiping never moves the story forward or back,
+and scrolling never turns the view.
 
 ---
 
@@ -183,7 +189,7 @@ Interactive Mode provides a user-controlled story experience.
 Supported:
 
 - Scroll to advance story
-- Swipe to change viewpoint
+- Swipe to turn the view around the content
 
 ---
 
@@ -278,6 +284,34 @@ protagonist travelling _through_ the connected environments with restrained,
 idle-led motion (sway, bob, drift). Characters anchored in the world instead
 are passed and left behind. A stage only needs to look correct across the band
 of the descent where it is on screen.
+
+## Horizontal Rotation
+
+The second input axis. A horizontal swipe **turns the view around the content**:
+the camera orbits a **circular path** centred on what it is looking at, at its
+**current vertical height**. The world reads as a turntable the viewer can spin
+to look at the scene from another side.
+
+- **The camera orbits; the world does not move.** Consistent with _Move the
+  camera vs. move the world_ above — objects keep true, stable world
+  coordinates, and parallax layers need no special handling.
+- **Height is untouched.** Rotation is about a vertical axis, so it cannot
+  change a vertical position. Vertical movement stays exclusively the scroll
+  axis's job; per-layer parallax offsets and every progress-keyed track are
+  driven by scroll alone.
+- **Free and persistent.** Any angle, both directions, no limit and no snapping.
+  The angle stays where the viewer left it while they keep scrolling, until they
+  swipe again.
+- **Direct manipulation.** The drag tracks the finger and a flick coasts to a
+  stop. Rotation per screen-width of drag is an authored knob, as descent per
+  scroll unit is for the vertical axis.
+- **Characters do not spin with the view.** Camera-following actors keep their
+  world orientation, so turning walks the viewer around them and shows a
+  different side, rather than pinning them to the screen.
+
+Because the axes are independent, a stage authored to be framed from the front
+still needs to hold up when turned — see _Horizontal Switching_ for the
+authoring implication.
 
 ---
 
@@ -464,16 +498,25 @@ Scrolling down moves through the sequence.
 
 Represents:
 
-- Character viewpoint
+- Point of view on the current moment
 - Alternative perspectives
 
 Supported:
 
-- Multiple character viewpoints
-- Swipe-based switching (swipe to switch characters)
+- Swipe to rotate the view around the content (see _Horizontal Rotation_)
 
-Horizontal switching changes the viewpoint on the same story, not the story
-path — there are no branches or alternative outcomes.
+The horizontal axis changes only how the current moment is seen, never the
+story path — there are no branches or alternative outcomes, and swiping does
+not advance or rewind the story.
+
+Authoring implication: a moment can be turned to, so stages should read from
+more than the one front-on framing. Compose for the intended viewpoint first,
+but keep the sides and back of anything near the camera presentable — or place
+it far enough out that turning never brings it close.
+
+Swipe-based switching between _character_ viewpoints (a different protagonist's
+perspective on the same span) remains part of the vision but is not built; the
+swipe axis currently drives rotation.
 
 ---
 

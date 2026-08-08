@@ -1,8 +1,9 @@
 /**
- * Default player HUD: world label and a scroll hint. Injects its own DOM and
+ * Default player HUD: world label and an input hint. Injects its own DOM and
  * styles into `root`. Optional debug overlays: `stats` (frame-time / triangles
  * / draw calls) and `sync` (scroll↔world: units, global progress, camera
- * descent, per-layer parallax offsets — for verifying the scroll behaviour).
+ * descent, swipe rotation, per-layer parallax offsets — for verifying the
+ * scroll and rotation behaviour).
  *
  * @param {Awaited<ReturnType<import('./world-player.js').createWorldPlayer>>} player
  * @param {HTMLElement} [root]
@@ -30,7 +31,7 @@ export function attachHud(player, root = document.body, { stats = false, sync = 
   hud.className = 'slash-hud';
   hud.innerHTML = `
     <span class="slash-label"></span>
-    <div class="slash-hint">Scroll ↓</div>
+    <div class="slash-hint">Scroll ↓ · Swipe ↔ to turn</div>
   `;
   root.append(style, hud);
 
@@ -66,14 +67,20 @@ export function attachHud(player, root = document.body, { stats = false, sync = 
     syncEl.className = 'slash-sync';
     syncEl.style.top = stats ? '36px' : '10px';
     hud.append(syncEl);
-    player.onProgress(({ units, totalUnits, g, travel, cameraY, layers }) => {
+    player.onProgress(({ units, totalUnits, g, travel, cameraY, yaw, layers }) => {
       const layerLines = layers
         .map((l) => `  ${l.id.padEnd(6)} p${l.parallax.toFixed(2)}  y ${l.y.toFixed(1)}`)
         .join('\n');
+      // Rotation is unbounded; show it folded into (-180°, 180°] plus the
+      // signed turn count, so a free-spinning turntable stays readable.
+      const deg = (yaw * 180) / Math.PI;
+      const folded = deg - 360 * Math.round(deg / 360);
+      const turns = Math.round((deg - folded) / 360);
       syncEl.textContent =
         `units ${units.toFixed(3)} / ${totalUnits.toFixed(2)}\n` +
         `g ${g.toFixed(3)}   travel ${travel.toFixed(1)}m\n` +
         `camera.y ${cameraY.toFixed(1)}\n` +
+        `yaw ${folded.toFixed(1)}°${turns ? ` (${turns > 0 ? '+' : ''}${turns} turns)` : ''}\n` +
         `layers (offset y):\n${layerLines}`;
     });
   }

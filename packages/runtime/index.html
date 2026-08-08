@@ -20,13 +20,15 @@
       #app {
         position: fixed;
         inset: 0;
-        /* 100dvh tracks the live viewport (matches inset: 0's old
-           behavior, so no gap opens up when the toolbar collapses); the
-           resize storm this causes during the toolbar's animation is
-           debounced in viewer.js instead of avoided here (100vh is the
-           fallback for browsers without dvh support). */
+        /* 100lvh sizes to the toolbar-collapsed viewport up front: at
+           load the toolbar simply occludes the bottom of an
+           already-correctly-sized canvas, and collapsing it later just
+           reveals that (already rendered) area rather than growing the
+           container into it. No resize fires for toolbar show/hide
+           either way (100vh is the fallback for browsers without lvh
+           support). */
         height: 100vh;
-        height: 100dvh;
+        height: 100lvh;
         touch-action: none;
       }
       #app canvas {

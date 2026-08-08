@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { createViewer } from './viewer.js';
 import { createAssetLibrary } from './assets.js';
 import { createScrollDriver } from './scroll.js';
+import { createSwipeDriver } from './swipe.js';
 import { createPostPipeline } from './post.js';
 import { applyStyle } from './styles.js';
 import { createEffect } from './effects.js';
@@ -13,7 +14,8 @@ const DEG = Math.PI / 180;
 /**
  * The world player: plays one continuous vertical world (`world.json`).
  *
- * Scroll is a single axis (`units`, viewport-heights). The camera descends
+ * Scroll is a single axis (`units`, viewport-heights) which the runtime drives
+ * itself — nothing here scrolls natively (`scroll.js`). The camera descends
  * through a world that is fixed in space, so environments stream past while
  * camera-following actors stay framed — an attraction where the stage moves
  * and the characters travel through it. All motion is derived every frame from
@@ -26,7 +28,12 @@ const DEG = Math.PI / 180;
  *   - atmosphere (fog, lights, effects) and actor tracks are sampled over
  *     global progress `g`.
  *
- * The world is passive — scrolling is the only input.
+ * A second, independent axis: horizontal swipes accumulate `yaw` (`swipe.js`),
+ * which orbits the camera around its look-at point at unchanged height — the
+ * world turns like a turntable. Only the camera pose reads `yaw`; the parallax
+ * layers, the traveler rig and every `g`-keyed track are driven by scroll
+ * alone, so rotating never moves the world vertically and scrolling never
+ * rotates it.
  *
  * @param {HTMLElement} container
  * @param {Awaited<ReturnType<import('./loader.js').loadProject>>} bundle
@@ -121,18 +128,22 @@ export async function createWorldPlayer(container, bundle) {
     effects.push(effect);
   }
 
-  // --- scroll driver over the whole world length ---
+  // --- input: vertical scroll over the world length, horizontal swipe rotation ---
   const driver = createScrollDriver(container, { getTotalUnits: () => world.length });
+  const swipe = createSwipeDriver(container, {
+    degreesPerWidth: world.rotation?.degreesPerWidth,
+  });
 
   const progressListeners = new Set();
 
   viewer.onTick((dt) => {
-    const units = driver.update();
+    const units = driver.update(dt);
+    const yaw = swipe.update(dt);
     const travel = travelAt(units, world);
     const g = progressAt(units, world);
 
-    // Camera dolly.
-    const pose = cameraPose(world, g, travel);
+    // Camera dolly (vertical, from scroll) + turntable orbit (from swipe).
+    const pose = cameraPose(world, g, travel, yaw);
     viewer.camera.position.set(...pose.position);
     viewer.camera.lookAt(...pose.target);
     viewer.camera.fov = pose.fov;
@@ -174,10 +185,10 @@ export async function createWorldPlayer(container, bundle) {
     }
     for (const effect of effects) effect.update(dt, g);
 
-    notifyProgress(units, travel, g, pose.position[1]);
+    notifyProgress(units, travel, g, pose.position[1], yaw);
   });
 
-  function notifyProgress(units, travel, g, cameraY) {
+  function notifyProgress(units, travel, g, cameraY, yaw) {
     if (progressListeners.size === 0) return;
     const layerOffsets = [...layers.values()].map(({ def, group }) => ({
       id: def.id,
@@ -185,7 +196,16 @@ export async function createWorldPlayer(container, bundle) {
       y: group.position.y,
     }));
     for (const cb of progressListeners) {
-      cb({ units, totalUnits: world.length, travel, g, cameraY, name: world.name ?? world.id, layers: layerOffsets });
+      cb({
+        units,
+        totalUnits: world.length,
+        travel,
+        g,
+        cameraY,
+        yaw,
+        name: world.name ?? world.id,
+        layers: layerOffsets,
+      });
     }
   }
 
@@ -198,6 +218,7 @@ export async function createWorldPlayer(container, bundle) {
     },
     dispose() {
       driver.dispose();
+      swipe.dispose();
       postPipeline?.dispose();
       viewer.dispose();
     },

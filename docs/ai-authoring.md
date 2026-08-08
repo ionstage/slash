@@ -23,9 +23,14 @@ Generated content must pass this before it is usable.
 ## The mental model
 
 - The experience is **one continuous vertical world**, not a sequence of
-  scenes. The viewer descends it by **native vertical scroll** — scrolling down
-  moves the camera down. The world is **passive**: scrolling is the only input
-  (no taps, events, state, or branching).
+  scenes. The viewer descends it by **scrolling** — scrolling down moves the
+  camera down. There are exactly **two inputs**: vertical scroll, and
+  horizontal swipe (which turns the view, below). The world is otherwise
+  **passive** — no taps, events, state, or branching.
+- The page itself **never scrolls**: the runtime reads the raw input and drives
+  both axes itself, momentum included. Nothing you author depends on this, but
+  it is why the scroll position is a continuous parameter (`units`) rather than
+  a document offset, and why it is preserved exactly when a device rotates.
 - Scroll position is `units` (viewport-heights). Two derived scalars drive
   everything (see `packages/runtime/src/world-map.js`, the single source of
   truth):
@@ -34,7 +39,17 @@ Generated content must pass this before it is usable.
     to the descending point; `camera.drift` adds subtle motion over `g`.
   - `g = units / length` ∈ [0,1] — **global progress**, the axis all tracks
     (actor motion, fog, lights, effects) are keyframed against.
-- The world is **fixed in space**; the camera moves *through* it. So place
+- **Horizontal swipes turn the view.** A swipe left/right orbits the camera
+  around the vertical axis through its look-at point, at unchanged height — the
+  content turns on a circular path, like a turntable. The rotation is free (any
+  angle, both directions), persists while scrolling, and is **independent of the
+  vertical axis**: it never changes `units`, `travel`, `g`, layer offsets or
+  anything keyframed over `g`. Independent, not exclusive — a diagonal swipe
+  scrolls and turns at the same time. The only knob is
+  `rotation.degreesPerWidth` (degrees per full-width drag, default 180) — the
+  swipe-feel counterpart of `travelPerUnit`. You do not author the angle; the
+  viewer chooses it.
+- The world is **fixed in space**; the camera moves _through_ it. So place
   objects at their true `worldY` (metres) and let the descent reveal them. This
   is why authoring is WYSIWYG — an object at `worldY: -54` is passed at
   `units = 54 / travelPerUnit`.
@@ -73,3 +88,9 @@ Generated content must pass this before it is usable.
 6. Give persistent `follow: "camera"` actors restrained motion — a gentle sway
    or bob over `g`, not busy choreography. Let the descent and parallax carry
    the shot.
+7. Compose for the authored front-on framing, but assume the viewer can turn
+   the camera to any angle. Put nothing important _behind_ the camera's start
+   position expecting it to stay unseen, and surround the path with content on
+   all sides rather than a single flat backdrop facing the front — otherwise a
+   half-turn shows the empty side of the world. Distant `parallax` layers can
+   stay flat; they are far enough out that turning barely moves them.

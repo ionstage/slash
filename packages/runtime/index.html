@@ -20,15 +20,16 @@
       #app {
         position: fixed;
         inset: 0;
-        /* 100lvh sizes to the toolbar-collapsed viewport up front: at
-           load the toolbar simply occludes the bottom of an
-           already-correctly-sized canvas, and collapsing it later just
-           reveals that (already rendered) area rather than growing the
-           container into it. No resize fires for toolbar show/hide
-           either way (100vh is the fallback for browsers without lvh
-           support). */
+        /* 100svh is the viewport with the mobile toolbars *shown*, which
+           is the only state there is now: browsers retract the toolbar in
+           response to native scrolling, and the runtime does its own
+           scrolling (src/scroll.js), so the toolbar stays put for the
+           whole session. Sizing to the toolbar-collapsed viewport
+           (100lvh) would leave the bottom of the canvas permanently
+           behind the toolbar. Nothing resizes either way. (100vh is the
+           fallback for browsers without svh support.) */
         height: 100vh;
-        height: 100lvh;
+        height: 100svh;
         touch-action: none;
       }
       #app canvas {

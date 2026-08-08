@@ -1,8 +1,9 @@
 /**
  * Scroll → world mapping for the continuous vertical world.
  *
- * The whole runtime is driven by one scalar: `units` (viewport-heights of
- * scroll, from the native scroll driver). This module turns that scalar into
+ * The whole runtime is driven by two scalars: `units` (viewport-heights of
+ * scroll, from the native scroll driver) and `yaw` (radians of horizontal-
+ * swipe rotation, from the swipe driver). This module turns them into
  * everything the world player needs, and is the single source of truth for the
  * mapping. It is a pure module (no Three.js) so it can be unit-tested in Node
  * and reasoned about in isolation — the same role `tracks.js` plays for
@@ -20,6 +21,13 @@
  * per-layer `parallax` factor adds *deliberate* extra separation on top:
  *   parallax = 1 → the layer is true world space (full parallax);
  *   parallax = 0 → the layer rides with the camera (appears infinitely far).
+ *
+ * The two axes are deliberately independent. `yaw` enters the mapping in
+ * exactly one place — {@link orbit}, applied to the camera position inside
+ * {@link cameraPose} — and a rotation about the vertical axis cannot change a
+ * Y coordinate. So swiping cannot move the world vertically, and scrolling
+ * cannot rotate it: `travel`, `layerOffset`, `rigOffset` and every `g`-keyed
+ * track are untouched by `yaw`.
  */
 
 import { sampleTrack } from './tracks.js';
@@ -70,16 +78,49 @@ export function rigOffset(travel) {
 }
 
 /**
- * The camera pose at progress g / descent `travel`. Position and look-at are
- * authored relative to the descending travel point; `drift` adds subtle,
- * art-directed motion keyframed over g.
+ * Orbit a point around the vertical axis through `pivot` — the turntable
+ * rotation horizontal swipes drive. The Y coordinate is returned untouched
+ * (a rotation about a vertical axis cannot change a height) and the distance
+ * to the axis is preserved, so the orbit is a horizontal circle centred on
+ * the pivot: "rotate around a circular path, centred on the content, at the
+ * current vertical height".
+ *
+ * Sign: `yaw` is the camera's azimuth about the pivot, counter-clockwise seen
+ * from above (the Three.js Y-rotation convention). The swipe driver produces a
+ * *negative* yaw for a rightward drag, so the world turns the way the finger
+ * pushes it — see `swipe.js`.
+ *
+ * @param {number[]} point Point to orbit (typically the camera position).
+ * @param {number[]} pivot Centre of the orbit (typically the look-at point).
+ * @param {number} yaw Rotation in radians.
+ * @returns {number[]} The orbited point.
+ */
+export function orbit(point, pivot, yaw) {
+  if (!yaw) return [...point];
+  const dx = point[0] - pivot[0];
+  const dz = point[2] - pivot[2];
+  const c = Math.cos(yaw);
+  const s = Math.sin(yaw);
+  return [pivot[0] + dx * c + dz * s, point[1], pivot[2] - dx * s + dz * c];
+}
+
+/**
+ * The camera pose at progress g / descent `travel`, rotated by `yaw`. Position
+ * and look-at are authored relative to the descending travel point; `drift`
+ * adds subtle, art-directed motion keyframed over g; `yaw` then orbits the
+ * camera around the (unmoved) look-at point at unchanged height.
+ *
+ * Order matters: drift is applied first so the orbit is always centred on the
+ * *current* look-at point — the composition the author framed — and the pivot
+ * itself never moves, whatever the rotation.
  *
  * @param {any} world Validated world document (uses `world.camera`).
  * @param {number} g Global progress in [0,1].
  * @param {number} travel Metres descended (from {@link travelAt}).
+ * @param {number} [yaw] Swipe rotation in radians (see {@link orbit}).
  * @returns {{ position: number[], target: number[], fov: number }}
  */
-export function cameraPose(world, g, travel) {
+export function cameraPose(world, g, travel, yaw = 0) {
   const cam = world.camera;
   const offset = cam.offset ?? [0, 0, 0];
   const target = cam.target ?? [0, 0, 0];
@@ -102,5 +143,5 @@ export function cameraPose(world, g, travel) {
     tgt[2] += d[2];
   }
   const fov = (cam.fov ?? 50) + (drift?.fov ? sampleTrack(drift.fov, g) : 0);
-  return { position: pos, target: tgt, fov };
+  return { position: orbit(pos, tgt, yaw), target: tgt, fov };
 }

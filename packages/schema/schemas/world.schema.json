@@ -1,7 +1,7 @@
 {
   "$id": "slash/world",
   "title": "Slash world (world.json)",
-  "description": "One continuous vertical world. Scroll is a single axis measured in viewport-heights; the camera descends through a world that is fixed in space, so environments stream past while camera-following actors stay framed. Objects are placed at an absolute worldY within a parallax layer. There are no scenes or cuts — atmosphere, framing and parallax are continuous over global progress g in [0,1]. Passive: vertical scroll is the only input.",
+  "description": "One continuous vertical world. Vertical scroll is the primary axis, measured in viewport-heights; the camera descends through a world that is fixed in space, so environments stream past while camera-following actors stay framed. Objects are placed at an absolute worldY within a parallax layer. There are no scenes or cuts — atmosphere, framing and parallax are continuous over global progress g in [0,1]. A second, independent input: horizontal swipes turn the view around the content (see `rotation`) without changing vertical position.",
   "type": "object",
   "required": ["formatVersion", "id", "length", "camera", "layers"],
   "additionalProperties": false,
@@ -21,11 +21,24 @@
       "maximum": 100,
       "description": "Metres the camera descends per viewport-height of scroll. The knob that ties scroll feel to world scale. Default 1."
     },
+    "rotation": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Horizontal-swipe rotation. A swipe left/right orbits the camera around the vertical axis through its look-at point, at unchanged height — the content turns on a circular path while vertical position stays under scroll control alone. Rotation is free (any angle, both directions) and persists while scrolling.",
+      "properties": {
+        "degreesPerWidth": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1440,
+          "description": "Degrees the world turns per full-viewport-width drag. The knob that ties swipe feel to world scale, as travelPerUnit does for scroll. Default 180."
+        }
+      }
+    },
     "camera": {
       "type": "object",
       "additionalProperties": false,
       "required": ["offset", "target"],
-      "description": "A dolly rig that descends with scroll. offset/target are authored relative to the descending travel point; optional drift adds subtle motion over g.",
+      "description": "A dolly rig that descends with scroll. offset/target are authored relative to the descending travel point; optional drift adds subtle motion over g. Horizontal swipes orbit this camera around its look-at point (see `rotation`).",
       "properties": {
         "offset": {
           "$ref": "#/$defs/vec3",

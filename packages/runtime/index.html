@@ -20,11 +20,13 @@
       #app {
         position: fixed;
         inset: 0;
-        /* 100svh stays fixed while iOS Safari's toolbar collapses/expands
-           during scroll, unlike the live viewport `inset: 0` tracks (100vh
-           is the fallback for browsers without svh support). */
+        /* 100dvh tracks the live viewport (matches inset: 0's old
+           behavior, so no gap opens up when the toolbar collapses); the
+           resize storm this causes during the toolbar's animation is
+           debounced in viewer.js instead of avoided here (100vh is the
+           fallback for browsers without dvh support). */
         height: 100vh;
-        height: 100svh;
+        height: 100dvh;
         touch-action: none;
       }
       #app canvas {

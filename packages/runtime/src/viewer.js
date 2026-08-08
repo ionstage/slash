@@ -43,7 +43,17 @@ export function createViewer(container, options = {}) {
     camera.updateProjectionMatrix();
     for (const fn of resizeListeners) fn(w, h);
   }
-  const observer = new ResizeObserver(resize);
+  // The container tracks the live viewport (see index.html), which on iOS
+  // Safari fires several intermediate resizes while the toolbar collapses/
+  // expands during scroll. The canvas already stretches to fill the
+  // container via CSS at no cost, so debounce the actual GPU buffer
+  // reallocation (renderer/composer setSize) until that settles, rather
+  // than reallocating on every intermediate frame.
+  let resizeTimer = null;
+  const observer = new ResizeObserver(() => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(resize, 200);
+  });
   observer.observe(container);
   resize();
 
@@ -99,6 +109,7 @@ export function createViewer(container, options = {}) {
     },
     dispose() {
       observer.disconnect();
+      clearTimeout(resizeTimer);
       renderer.setAnimationLoop(null);
       renderer.dispose();
       renderer.domElement.remove();

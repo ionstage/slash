@@ -129,6 +129,52 @@ test('touch keeps turning while the browser scrolls the same gesture', () => {
   assert.ok(Math.abs(driver.yaw - expected) < 1e-9);
 });
 
+test('a gesture the browser has committed to scrolling still turns the view', () => {
+  clock = 0;
+  const h = harness();
+  const driver = createSwipeDriver(h.element, {});
+
+  // Phase 1: the finger moves straight down. The browser takes the gesture for
+  // native scrolling and fires pointercancel — pointer events stop here.
+  h.element.emit('touchstart', touch(200, 100));
+  for (let i = 1; i <= 6; i++) {
+    clock += 16;
+    h.win.emit('touchmove', touch(200, 100 + i * 40));
+  }
+  h.win.emit('pointercancel', { ...mouse(200, 340), pointerType: 'touch' });
+  assert.equal(driver.update(0.016), 0, 'straight down turns nothing');
+
+  // Phase 2: the same finger, still down, now moves sideways while that scroll
+  // runs on. touchmove keeps arriving, so the horizontal axis stays live.
+  for (let i = 1; i <= 5; i++) {
+    clock += 16;
+    h.win.emit('touchmove', touch(200 + i * 30, 340 + i * 10));
+  }
+  const expected = -(150 - 8) * ((180 * DEG) / WIDTH);
+  assert.ok(Math.abs(driver.yaw - expected) < 1e-9, 'sideways travel mid-scroll turns the view');
+});
+
+test('a new gesture always takes over, even if the last one never ended', () => {
+  clock = 0;
+  const h = harness();
+  const driver = createSwipeDriver(h.element, {});
+
+  // A gesture whose touchend never arrives (dropped event, engine-specific
+  // cancellation) must not swallow horizontal input for good.
+  h.element.emit('touchstart', touch(0, 100));
+  clock += 16;
+  h.win.emit('touchmove', touch(60, 100));
+  const stranded = driver.yaw;
+  assert.ok(stranded !== 0);
+
+  h.element.emit('touchstart', touch(0, 100)); // fresh contact, no touchend first
+  for (let i = 1; i <= 4; i++) {
+    clock += 16;
+    h.win.emit('touchmove', touch(i * 25, 100));
+  }
+  assert.ok(driver.yaw < stranded, 'the new gesture turns the view');
+});
+
 test('touch drags that the browser cancels stop without a throw', () => {
   clock = 0;
   const h = harness();

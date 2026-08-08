@@ -305,6 +305,10 @@ to look at the scene from another side.
   or a turn: it is decomposed. Its vertical component scrolls natively while its
   horizontal component turns the view, in the same gesture and the same frame.
   Independence is about what each component controls, not about taking turns.
+- **A scroll in progress never suspends turning.** Horizontal drag keeps turning
+  the view while the world is scrolling — under the finger or coasting on
+  momentum, and whichever direction the gesture began in. The horizontal axis is
+  always live.
 - **Free and persistent.** Any angle, both directions, no limit and no snapping.
   The angle stays where the viewer left it while they keep scrolling, until they
   swipe again.

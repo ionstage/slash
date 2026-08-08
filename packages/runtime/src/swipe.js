@@ -13,13 +13,15 @@
  * component never moves the world vertically (`yaw` reaches nothing but the
  * camera orbit) and the vertical component never turns it.
  *
- * Reading horizontal movement *while the page scrolls* is why touch is handled
- * through touch events rather than pointer events: when the browser claims a
- * gesture for native scrolling it fires `pointercancel` and no further pointer
- * events arrive, but `touchmove` keeps being dispatched throughout the scroll.
- * So the finger's sideways travel is still ours while its vertical travel is
- * the browser's. Pointer events handle mouse and pen, which the browser never
- * claims.
+ * **A horizontal drag turns the view even while the page is scrolling** — a
+ * scroll in progress never suspends the horizontal axis, whether it is running
+ * under the finger or coasting on momentum. That requirement is why touch is
+ * handled through touch events rather than pointer events: when the browser
+ * claims a gesture for native scrolling it fires `pointercancel` and no further
+ * pointer events arrive, but `touchmove` keeps being dispatched throughout the
+ * scroll. So the finger's sideways travel is still ours while its vertical
+ * travel is the browser's. Pointer events handle mouse and pen, which the
+ * browser never claims.
  *
  * Nothing here writes scroll position, and the horizontal axis is gated only
  * against noise, never against the vertical one:
@@ -131,6 +133,11 @@ export function createSwipeDriver(element, { degreesPerWidth = 180 } = {}) {
   }
 
   function onTouchStart(ev) {
+    // A fresh single-finger contact always takes over. Horizontal input must
+    // never be swallowed by a gesture whose end we somehow missed (a dropped
+    // touchend, an engine-specific cancellation) — that would silently kill
+    // turning for the rest of the session.
+    if (ev.touches.length === 1) dragId = null;
     const t = ev.changedTouches[0];
     if (t) beginDrag(t.identifier, t.clientX, ev.timeStamp);
   }

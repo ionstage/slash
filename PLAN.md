@@ -531,12 +531,31 @@ constraint, and it drives one non-obvious choice:
   slowly spin the world), and wheels ignore 1 px per event of trackpad jitter.
   Neither looks at the vertical component.
 
-Known limitation, browser-imposed rather than ours: with `touch-action: pan-y`
-the browser decides at the _start_ of a touch whether that gesture may scroll.
-A gesture that begins horizontally will not scroll even if it later turns
-vertical (the finger must be lifted first). Removing that would mean taking over
-vertical scrolling by hand and losing native momentum — the project's stated
-#1 product risk — so it is deliberately not done.
+**The horizontal axis is always live** (confirmed as a requirement by the
+owner): a scroll in progress never suspends turning — under the finger or
+coasting on momentum, and whichever direction the gesture began in. Two things
+protect that beyond the touch-event choice above:
+
+- A fresh single-finger `touchstart` always takes over the gesture. A dropped
+  `touchend` would otherwise leave the driver holding a gesture that has ended
+  and silently kill turning for the rest of the session — the one way this
+  requirement could fail without any visible error.
+- The wobble deadband is measured per gesture and per axis, so it never
+  accumulates into a block: it costs a fixed 8 px of sideways travel once.
+
+The asymmetry runs the other way, and it is browser-imposed rather than ours:
+with `touch-action: pan-y` the browser decides at the _start_ of a touch whether
+that gesture may **scroll**. A gesture that begins horizontally will not scroll
+even if it later turns vertical (the finger must be lifted first). Removing that
+would mean taking over vertical scrolling by hand and losing native momentum —
+the project's stated #1 product risk — so it is deliberately not done.
+
+The whole approach rests on one engine behaviour: **`touchmove` keeps being
+dispatched while the browser scrolls natively.** Verified on Chromium. An engine
+that withheld those events during a scroll would freeze the horizontal axis
+exactly while scrolling, and the only fix would be taking scrolling over
+entirely (`touch-action: none` + hand-rolled momentum). Worth re-checking first
+on any engine where turning appears to stall mid-scroll.
 
 ## Verified
 
@@ -561,6 +580,15 @@ simultaneity confirmed on the platform that matters:
 
 One diagonal swipe moved both axes at once with native scrolling intact; the
 pure gestures each moved only their own axis.
+
+Always-live horizontal axis, same emulation, real touch gestures:
+
+| path                                             | result                                     |
+| ------------------------------------------------ | ------------------------------------------ |
+| finger goes down, scrolls, _then_ moves sideways | yaw 0° → −83.9°, scroll ran on 2702 → 2762 |
+| new gesture during momentum coasting             | Δyaw −101.4° while Δscroll +335            |
+| second finger mid-gesture, then the first lifts  | no stuck state                             |
+| plain horizontal drag after 10 mixed gestures    | Δyaw −101.4°                               |
 
 ## Deferred
 

@@ -9,7 +9,12 @@ const deg = (rad) => (rad * 180) / Math.PI;
 /**
  * Minimal event-target harness: enough DOM for the driver (a canvas host and
  * its window) to run in Node, so the gesture rules — the wobble deadband, the
- * drag mapping, the flick coast, key rotation — are testable without a browser.
+ * drag mapping, the flick coast, the settle onto a configured step, key
+ * rotation — are testable without a browser.
+ *
+ * A driver built with no `steps` rotates freely and rests wherever it is left;
+ * one built with `steps` comes to rest only on those angles. Both are exercised
+ * below, since free rotation is what the snap degenerates to.
  */
 function harness() {
   const make = () => {
@@ -67,6 +72,19 @@ function drag(h, [x0, y0], [x1, y1], { steps = 8, ms = 16, device = mouse } = {}
 
 const release = (h, [x, y], device = mouse) =>
   h.win.emit(device === touch ? 'touchend' : 'pointerup', device(x, y));
+
+/** Run `seconds` of frames and return the resting angle in degrees. */
+function settle(driver, seconds = 3, dt = 1 / 60) {
+  for (let i = 0; i < Math.round(seconds / dt); i++) driver.update(dt);
+  return deg(driver.yaw);
+}
+
+/** Right-hand drag of `px`, slow enough that the release is not a throw. */
+function turnAndRest(h, px) {
+  drag(h, [0, 100], [px, 100]);
+  clock += 250; // the finger rests, so nothing is thrown
+  release(h, [px, 100]);
+}
 
 test('a horizontal drag turns the world 1:1 with the finger', () => {
   clock = 0;
@@ -280,6 +298,136 @@ test('rotation is unbounded and persists across frames', () => {
   const held = driver.yaw;
   for (let i = 0; i < 60; i++) driver.update(0.016); // idle frames
   assert.equal(driver.yaw, held, 'and the angle stays put until swiped again');
+});
+
+// --- snapping: continuous under the finger, discrete at rest ---
+
+const QUARTERS = [0, 90, 180, 270];
+const IRREGULAR = [0, 40, 180, 300]; // gaps of 40, 140, 120 and 60 degrees
+
+test('a release settles onto the nearest configured step', () => {
+  clock = 0;
+  const h = harness();
+  const driver = createSwipeDriver(h.element, { steps: QUARTERS });
+
+  turnAndRest(h, 108); // 100px past the deadband at 0.5°/px = −50°
+  assert.equal(Math.round(deg(driver.yaw)), -50, 'the drag itself tracks the finger 1:1');
+  assert.equal(Math.round(settle(driver)), -90, 'and −50° is nearer −90° than 0°');
+});
+
+test('a gentle release falls back to the step it came from', () => {
+  clock = 0;
+  const h = harness();
+  const driver = createSwipeDriver(h.element, { steps: QUARTERS });
+
+  turnAndRest(h, 48); // −20°: not yet halfway to the next step
+  assert.equal(Math.round(settle(driver)), 0);
+});
+
+test('a flick carries past intervening steps in proportion to its throw', () => {
+  clock = 0;
+  const h = harness();
+  const driver = createSwipeDriver(h.element, { steps: QUARTERS });
+
+  drag(h, [0, 100], [180, 100], { steps: 6, ms: 8 }); // a hard throw right
+  const atRelease = deg(driver.yaw);
+  release(h, [180, 100]);
+
+  const rest = settle(driver);
+  assert.equal(Math.round(atRelease), -86, 'the finger itself only reached −86°');
+  assert.equal(Math.round(rest), -270, 'the coast carries on past −90° and −180°');
+});
+
+test('settling never unwinds accumulated turns', () => {
+  clock = 0;
+  const h = harness();
+  // One step, at the front — so the only question is *which* front.
+  const driver = createSwipeDriver(h.element, { degreesPerWidth: 360, steps: [0] });
+
+  for (let i = 0; i < 2; i++) {
+    drag(h, [0, 100], [-WIDTH, 100]); // a full width left = +352°
+    clock += 250;
+    release(h, [-WIDTH, 100]);
+  }
+  assert.equal(Math.round(deg(driver.yaw)), 704, 'nearly two full turns in');
+  assert.equal(Math.round(settle(driver)), 720, 'two turns on, not back to zero');
+});
+
+test('steps need not be evenly spaced', () => {
+  clock = 0;
+  const h = harness();
+  const driver = createSwipeDriver(h.element, { steps: IRREGULAR });
+
+  // −35° sits between the 0° step and the 300° one. With even quarters it
+  // would fall back to 0°; here the 300° step is only 60° below the front,
+  // so it is the nearer of the two and wins.
+  turnAndRest(h, 78);
+  assert.equal(Math.round(deg(driver.yaw)), -35);
+  assert.equal(Math.round(settle(driver)), -60, '300° reached the short way round');
+});
+
+test('a vertical scroll gesture never drags the view onto a step', () => {
+  clock = 0;
+  const h = harness();
+  // Deliberately no step at 0: if a gesture that never turned the view could
+  // trigger a settle, this would visibly swing to 45° on the first scroll.
+  const driver = createSwipeDriver(h.element, { steps: [45, 135] });
+
+  drag(h, [200, 0], [203, 400], { device: touch }); // straight down, hand wobble only
+  release(h, [203, 400], touch);
+  assert.equal(settle(driver), 0, 'the view is left exactly where the author framed it');
+});
+
+test('a cancelled gesture still comes to rest on a step, without a throw', () => {
+  clock = 0;
+  const h = harness();
+  const driver = createSwipeDriver(h.element, { steps: QUARTERS });
+
+  drag(h, [0, 100], [180, 100], { device: touch, steps: 6, ms: 8 }); // a fast flick
+  h.win.emit('touchcancel', touch(180, 100));
+  // −86°, so the nearest step is −90°: reached, but not thrown past it the way
+  // the same gesture would have been on a real release.
+  assert.equal(Math.round(settle(driver)), -90);
+});
+
+test('arrow keys move one step at a time, along irregular intervals', () => {
+  const h = harness();
+  const driver = createSwipeDriver(h.element, { steps: IRREGULAR });
+  const key = (k) => ({ key: k, target: { tagName: 'CANVAS' }, preventDefault() {} });
+
+  h.win.emit('keydown', key('ArrowLeft'));
+  assert.equal(Math.round(settle(driver)), 40);
+  h.win.emit('keydown', key('ArrowLeft'));
+  assert.equal(Math.round(settle(driver)), 180, 'the next gap is 140°, not another 40°');
+
+  // Auto-repeat walks on without waiting for each settle to finish.
+  h.win.emit('keydown', key('ArrowRight'));
+  h.win.emit('keydown', key('ArrowRight'));
+  assert.equal(Math.round(settle(driver)), 0, 'two steps back the way it came');
+});
+
+test('a trackpad gesture settles onto a step once it stops', () => {
+  const h = harness();
+  const driver = createSwipeDriver(h.element, { steps: QUARTERS });
+  const wheel = (deltaX) => ({ deltaX, deltaY: 120, deltaMode: 0, preventDefault() {} });
+
+  // Three events of one gesture, each a frame apart: nothing settles mid-stream.
+  for (let i = 0; i < 3; i++) {
+    h.element.emit('wheel', wheel(35));
+    driver.update(1 / 60);
+  }
+  assert.equal(Math.round(deg(driver.yaw)), 51, 'the view tracks the gesture as it arrives');
+
+  assert.equal(Math.round(settle(driver)), 90, 'and settles once the stream goes quiet');
+});
+
+test('with no steps configured the view rests wherever it is left', () => {
+  clock = 0;
+  const h = harness();
+  const driver = createSwipeDriver(h.element, {}); // free rotation
+
+  turnAndRest(h, 108);
+  assert.equal(Math.round(settle(driver)), -50, 'no step to be pulled towards');
 });
 
 test('dispose removes every listener and restores the document', () => {

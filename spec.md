@@ -6,10 +6,10 @@
 > current build is a deliberately narrowed **runtime** focused on scroll
 > behavior and scroll↔world synchronization, playing **one continuous vertical
 > world** (see _Connected Stages_ below). It takes **two inputs**: vertical
-> scroll to descend, and horizontal swipe to **turn the view** around the
-> content (see _Horizontal Rotation_ below), and it **drives both of them
-> itself** — the page never scrolls natively (see _Interactive Input_). The
-> world is otherwise
+> scroll to descend — the browser's own scrolling, which the runtime reads
+> rather than drives — and horizontal swipe to **turn the view** around the
+> content, coming to rest on authored angles (see _Horizontal Rotation_ below).
+> The world is otherwise
 > **passive** — no taps, events, or state. Deferred for now (preserved in git
 > history): the authoring **Editor**, horizontal **viewpoint** switching (swipe
 > to switch characters — allowed by the vision, superseded on the swipe axis by
@@ -178,43 +178,36 @@ Vertical scroll is the primary navigation axis: scrolling down advances the
 story. Horizontal swipe **turns the view around the content** — see _Horizontal
 Rotation_ under the Stage System.
 
-**The application owns scrolling outright.** Nothing is delegated to the
-browser's native scrolling: the page itself never scrolls, and the runtime reads
-the raw input — touch, drag, wheel, keys — and moves the story itself. Both axes
-are therefore the same kind of thing, an input the application interprets, and
-the whole feel is authored rather than inherited from whichever engine the
-viewer happens to be running:
+**The vertical axis is the browser's own scrolling.** The page really scrolls: a
+spacer gives the document the story's height, the canvas is pinned in front of
+it, and the runtime *reads* the scroll position rather than computing one. The
+runtime does not interpret touch, wheel or key input on this axis at all.
 
-- **The feel is one design, not a per-platform accident.** Distance per gesture,
-  the momentum after a flick, how a coast decays and where it stops are the
-  runtime's to define, and identical everywhere.
-- **The two axes cannot diverge.** A single gesture is decomposed by the same
-  code on both axes, so they start together, respond together and settle with
-  the same shape — impossible while one axis was the browser's and the other
-  the application's.
-- **Nothing can be taken away mid-gesture.** No engine heuristic can claim a
-  gesture partway through, and there is no native scroll animation, rubber-band
-  or scroll-anchoring behaviour running underneath the story.
+- **Everything a scroller comes with is there.** Momentum tuned to the device,
+  the rubber-band at the ends, a scrollbar to drag, keyboard paging, and
+  whatever a viewer's accessibility and input settings do to a native scroller —
+  none of it has to be reimplemented, and none of it can be got subtly wrong.
+- **It behaves the way the platform behaves.** A viewer's scrolling is a habit
+  they already have; matching it is worth more than making it uniform.
+- **There is far less to maintain.** Momentum, clamping, keyboard paging and
+  stopping a coast on contact are the platform's problem again.
 
-**The ends of the story are walls, not brakes.** The content begins and ends,
-and reaching either end simply stops the motion. Nothing decelerates on the way
-in, nothing resists a gesture that pushes past, and nothing springs back —
-scrolling arrives at the boundary at whatever speed it had and stops there. A
-gesture that continues past an end is spent, not stored, so reversing moves the
-story immediately rather than first unwinding an overshoot.
+The cost is real and accepted: the feel of this axis **varies between engines**,
+the two axes are **different kinds of thing** (one delegated, one interpreted),
+and an engine may **claim a gesture partway through** for its own scrolling.
+Only the last of those needs handling, and it is handled by reading fingers from
+touch events, which keep being dispatched even when an engine cancels pointer
+events to take over scrolling.
 
-The cost is that everything the browser used to provide must be built and
-maintained here — momentum, clamping at the ends, keyboard paging — and that
-the platform's own scrolling conventions (a scrollbar, and any behaviour a
-viewer's accessibility or input settings apply to native scrollers) do not come
-for free. That is accepted: the story position is a continuous parameter into a
-3D world rather than a document offset, and it needs to behave the same way for
-every viewer.
+**The horizontal axis is the runtime's.** A swipe is read from raw input and
+turned into rotation directly, because there is nothing native to delegate it
+to. The canvas gives the browser the vertical axis only, so both halves of a
+gesture are live at once.
 
 The two axes are independent but not exclusive. Swiping never moves the story
 forward or back, and scrolling never turns the view — but both can happen at
-once: a diagonal gesture advances the story by its vertical component and turns
-the view by its horizontal one, simultaneously.
+once: a diagonal gesture advances the story by its vertical component, natively,
+and turns the view by its horizontal one, simultaneously.
 
 ---
 
@@ -340,28 +333,36 @@ to look at the scene from another side.
   horizontal component turns the view, in the same gesture and the same frame.
   Independence is about what each component controls, not about taking turns.
 - **A scroll in progress never suspends turning.** Horizontal drag keeps turning
-  the view while the world is scrolling — under the finger or coasting on
-  inertia after the finger has lifted, and whichever direction the gesture began
-  in. The horizontal axis is always live.
-- **Touching the world stops its inertia.** A swipe that lands while the world
-  is still coasting turns the view, but the leftover vertical motion ends on
-  contact, as on any scroll surface — putting a finger down is also how the
-  viewer stops a coasting descent. Only the coast ends; the swipe itself is
-  unaffected. (The runtime owns its momentum, so this is its own rule to honour
-  rather than the browser's.)
-- **Free and persistent.** Any angle, both directions, no limit and no snapping.
-  The angle stays where the viewer left it while they keep scrolling, until they
-  swipe again.
-- **Direct manipulation.** The drag tracks the finger and a flick coasts to a
-  stop. Rotation per screen-width of drag is an authored knob, as descent per
+  the view while the page is scrolling — under the finger or coasting on the
+  browser's inertia after the finger has lifted, and whichever direction the
+  gesture began in. The horizontal axis is always live, including through an
+  engine's decision to take the gesture for its own scrolling.
+- **Continuous under the finger, discrete at rest.** The drag tracks the finger
+  1:1 — grab the world and spin it — and when the gesture ends the view
+  **settles onto the nearest configured step**. Turning is therefore free to
+  explore and never leaves the viewer between framings.
+- **Steps are authored absolute angles, and need not be evenly spaced.** They
+  are the viewpoints the stage is composed to be seen from: a front, a
+  three-quarter view just off it, and something round the back is a perfectly
+  good set, with none of the gaps matching. An author who wants a plain
+  four-sided turntable configures four steps; one who wants free rotation
+  configures none.
+- **A flick carries, in proportion to the throw.** Where a coast would have
+  stopped is what gets snapped, so a hard throw passes several steps and a
+  gentle release falls back to the one it came from. Coasting and settling are
+  one motion, not a coast followed by a correction.
+- **Persistent, and unbounded.** The angle stays where the viewer left it while
+  they keep scrolling, until they swipe again. The view can be turned round and
+  round; settling never unwinds the turns already made.
+- **Rotation per screen-width of drag is an authored knob**, as descent per
   scroll unit is for the vertical axis.
 - **Characters do not spin with the view.** Camera-following actors keep their
   world orientation, so turning walks the viewer around them and shows a
   different side, rather than pinning them to the screen.
 
 Because the axes are independent, a stage authored to be framed from the front
-still needs to hold up when turned — see _Horizontal Switching_ for the
-authoring implication.
+still needs to hold up when turned — but the steps say exactly where it must
+hold up. See _Horizontal Switching_ for the authoring implication.
 
 ---
 
@@ -560,9 +561,11 @@ story path — there are no branches or alternative outcomes, and swiping does
 not advance or rewind the story.
 
 Authoring implication: a moment can be turned to, so stages should read from
-more than the one front-on framing. Compose for the intended viewpoint first,
-but keep the sides and back of anything near the camera presentable — or place
-it far enough out that turning never brings it close.
+more than the one front-on framing. The configured steps make this a finite job
+rather than an open-ended one — **compose each step as a shot**, and the angles
+in between only have to survive being passed through, not be rested on. The
+sides and back of anything near the camera still need to be presentable, or
+placed far enough out that turning never brings it close.
 
 Swipe-based switching between _character_ viewpoints (a different protagonist's
 perspective on the same span) remains part of the vision but is not built; the

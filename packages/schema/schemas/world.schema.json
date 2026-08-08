@@ -24,13 +24,24 @@
     "rotation": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Horizontal-swipe rotation. A swipe left/right orbits the camera around the vertical axis through its look-at point, at unchanged height — the content turns on a circular path while vertical position stays under scroll control alone. Rotation is free (any angle, both directions) and persists while scrolling.",
+      "description": "Horizontal-swipe rotation. A swipe left/right orbits the camera around the vertical axis through its look-at point, at unchanged height — the content turns on a circular path while vertical position stays under scroll control alone. The turn is continuous under the finger and discrete at rest: releasing settles onto the nearest angle in `steps`. Rotation persists while scrolling and is unbounded — the view can be turned round and round, and settling never unwinds accumulated turns.",
       "properties": {
         "degreesPerWidth": {
           "type": "number",
           "exclusiveMinimum": 0,
           "maximum": 1440,
           "description": "Degrees the world turns per full-viewport-width drag. The knob that ties swipe feel to world scale, as travelPerUnit does for scroll. Default 180."
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "description": "Absolute viewing angles, in degrees, the view comes to rest on — the framings the stage is composed to be seen from. 0 is the authored front-on framing, and increasing angles walk the camera anticlockwise seen from above; include 0 unless the front is deliberately not a resting angle. Intervals need not be regular: [0, 25, 180] is as valid as [0, 90, 180, 270], so an author can place a step just off the front and another round the back without the gaps matching. A release settles onto whichever step is nearest, a flick carrying past intervening ones in proportion to its throw. Omit the whole field for free rotation that rests wherever it is left.",
+          "items": {
+            "type": "number",
+            "minimum": 0,
+            "exclusiveMaximum": 360
+          }
         }
       }
     },

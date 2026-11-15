@@ -32,6 +32,16 @@ build, and sections 8–9 the open work and remaining risks.
   deferred without being designed out.
 - **Dependency rule, one-way:** `runtime → schema`. The schema package never
   depends on Three.js.
+- **License:** MIT (`LICENSE`, iOnStage). Any work that hosts or distributes a
+  runtime build (a deploy, a static-site export, a packaged release) must ship
+  a third-party notice file alongside the build artifacts. The build keeps
+  Three.js's `@license` header but **strips the meshoptimizer decoder's**,
+  which is a plain `//` comment, so the notice file must carry
+  meshoptimizer's copyright line and the full MIT permission text. Copy them
+  from the header of `three/examples/jsm/libs/meshopt_decoder.module.js` in the
+  installed Three.js, so the years track upgrades, and include Three.js's notice
+  too. Confirm with `grep -i kapoulkine dist/assets/*.js` that it is still
+  missing, and re-audit the notice whenever a runtime dependency is added.
 
 ## 2. Packages
 

@@ -78,4 +78,6 @@ MIT — see `LICENSE`.
 
 The runtime bundles [Three.js](https://github.com/mrdoob/three.js) (MIT,
 Copyright 2010-2024 Three.js Authors), including the meshoptimizer decoder
-(MIT, Copyright 2016-2022 Arseny Kapoulkine).
+(MIT, Copyright 2016-2022 Arseny Kapoulkine). The build strips the
+meshoptimizer notice, so anything that hosts or distributes a build must ship a
+third-party notice file with it — see `PLAN.md` §1.
